@@ -1,0 +1,23 @@
+[profile.default]
+src = "src"
+out = "out"
+libs = ["lib"]
+solc_version = "0.8.24"
+# Mezo docs recommend evmVersion "london". "paris" emits the same opcode set (no PUSH0; PREVRANDAO is the
+# same 0x44 opcode as DIFFICULTY) and runs on Mezo, Arc and anvil.
+evm_version = "paris"
+optimizer = true
+optimizer_runs = 200
+remappings = [
+  "@openzeppelin/contracts/=lib/openzeppelin-contracts/contracts/",
+  "forge-std/=lib/forge-std/src/",
+]
+
+[fmt]
+line_length = 110
+
+[rpc_endpoints]
+mezo_testnet = "https://rpc.test.mezo.org"
+arc_testnet = "https://rpc.testnet.arc.io"
+arc = "https://rpc.mainnet.arc.io"
+anvil = "http://127.0.0.1:8545"
