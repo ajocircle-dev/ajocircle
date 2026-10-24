@@ -4,6 +4,8 @@ pragma solidity ^0.8.24;
 import {Script, console2} from "forge-std/Script.sol";
 import {AjoCircle} from "../src/AjoCircle.sol";
 import {MockERC20} from "../src/MockERC20.sol";
+import {MockYieldAdapter} from "../src/yield/MockYieldAdapter.sol";
+import {MUSDSavingsRateAdapter} from "../src/yield/MUSDSavingsRateAdapter.sol";
 
 /// @notice Deploys AjoCircle. No keys live here: pass the signer on the CLI
 ///         (e.g. `--account deployer` from `cast wallet import`, or `--private-key $PRIVATE_KEY`).
@@ -18,22 +20,48 @@ import {MockERC20} from "../src/MockERC20.sol";
 ///   DEMO_MEMBERS        member count (default 3)
 ///   DEMO_ROUND_LENGTH   seconds (default 600)
 ///   DEMO_COLLATERAL     "true" to require collateral (default true)
+///
+/// Yield (optional; default = none, i.e. plain MUSD / USDC rails — required for Arc and for Mezo TESTNET,
+/// where no principal-safe MUSD yield source exists, see README "MUSD yield"):
+///   YIELD_ADAPTER       address of an already-deployed, UNBOUND IYieldAdapter (AjoCircle binds it in its constructor)
+///   SMUSD_VAULT         Mezo MAINNET MUSD Savings Rate vault (0xb4D498029af77680cD1eF828b967f010d06C51CC):
+///                       deploys an MUSDSavingsRateAdapter for it and wires it in. Mainnet only.
+///   DEPLOY_MOCK_ADAPTER "true" to deploy a MockYieldAdapter for TOKEN_ADDRESS / the mock token (demo/local only;
+///                       "yield" = tokens sent to the adapter)
 contract Deploy is Script {
     function run() external returns (AjoCircle ajo, address token) {
         bool deployMock = vm.envOr("DEPLOY_MOCK_TOKEN", false);
         token = vm.envOr("TOKEN_ADDRESS", address(0));
         bool demo = vm.envOr("CREATE_DEMO_CIRCLE", false);
 
-        vm.startBroadcast();
-        ajo = new AjoCircle();
-        console2.log("AjoCircle deployed at", address(ajo));
+        address adapter = vm.envOr("YIELD_ADAPTER", address(0));
+        address smusdVault = vm.envOr("SMUSD_VAULT", address(0));
+        bool mockAdapter = vm.envOr("DEPLOY_MOCK_ADAPTER", false);
+        require(
+            (adapter != address(0) ? 1 : 0) + (smusdVault != address(0) ? 1 : 0) + (mockAdapter ? 1 : 0) <= 1,
+            "set at most one of YIELD_ADAPTER / SMUSD_VAULT / DEPLOY_MOCK_ADAPTER"
+        );
 
+        vm.startBroadcast();
         if (deployMock) {
             MockERC20 mock = new MockERC20("Mock USD", "mUSD", 18);
             mock.mint(msg.sender, 1_000_000e18);
             token = address(mock);
             console2.log("MockERC20 deployed at", token);
         }
+
+        if (smusdVault != address(0)) {
+            adapter = address(new MUSDSavingsRateAdapter(smusdVault));
+            console2.log("MUSDSavingsRateAdapter deployed at", adapter);
+        } else if (mockAdapter) {
+            require(token != address(0), "TOKEN_ADDRESS or DEPLOY_MOCK_TOKEN required for mock adapter");
+            adapter = address(new MockYieldAdapter(token));
+            console2.log("MockYieldAdapter deployed at", adapter);
+        }
+
+        ajo = new AjoCircle(adapter);
+        console2.log("AjoCircle deployed at", address(ajo));
+        console2.log("Yield adapter (0 = none)", adapter);
 
         if (demo) {
             require(token != address(0), "TOKEN_ADDRESS required for demo circle");

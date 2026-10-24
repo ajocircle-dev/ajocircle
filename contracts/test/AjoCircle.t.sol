@@ -19,7 +19,7 @@ contract AjoCircleTest is Test {
     uint64 constant ROUND = 7 days;
 
     function setUp() public {
-        ajo = new AjoCircle();
+        ajo = new AjoCircle(address(0));
         musd = new MockERC20("Mezo USD", "MUSD", 18);
         address[4] memory people = [ada, bayo, chi, dayo];
         for (uint256 i; i < people.length; i++) {

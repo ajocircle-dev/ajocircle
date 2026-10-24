@@ -4,6 +4,7 @@ pragma solidity ^0.8.24;
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import {IYieldAdapter} from "./yield/IYieldAdapter.sol";
 
 /// @title AjoCircle
 /// @notice Onchain rotating savings circles (ajo / esusu / chama / tontine).
@@ -24,6 +25,14 @@ import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol
 /// the remaining active members. A member who has already been paid cannot exit: they still owe the circle,
 /// and if they stop paying they are handled as a defaulter.
 ///
+/// Optional MUSD yield (`yieldAdapter`, set once at deploy; address(0) = plain token rails, e.g. Arc/USDC):
+/// in circles that use the adapter's asset and require collateral, all member collateral is routed into the
+/// adapter when the circle starts. Collateral is the only idle balance that is guaranteed to sit still for the
+/// whole circle; the round pot is NEVER routed, so payouts never wait on the yield source. Collateral is pulled
+/// back (instantly, principal-protected per IYieldAdapter) when it is slashed, forfeited, or returned at close.
+/// Yield is attributed to circles pro rata to routed principal over time and, at close, credited to members
+/// pro rata to the collateral they still hold (defaulters who lost collateral earn less).
+///
 /// Known limitations (hackathon scope): fee-on-transfer / rebasing tokens are not supported; a defaulter with
 /// no collateral left simply makes that round's pot smaller; the randomized payout order uses onchain
 /// pseudo-randomness that a block producer can influence.
@@ -33,6 +42,12 @@ contract AjoCircle is ReentrancyGuard {
     uint256 public constant MIN_MEMBERS = 2;
     uint256 public constant MAX_MEMBERS = 50;
     uint256 public constant MIN_ROUND_LENGTH = 60; // seconds; keeps demos fast while preventing zero-length rounds
+    uint256 internal constant ACC = 1e27; // precision for yield-per-unit accounting
+
+    /// @notice Where idle collateral earns yield. address(0) disables yield routing entirely.
+    IYieldAdapter public immutable yieldAdapter;
+    /// @notice Token the adapter accepts (only circles in this token are routed). address(0) if no adapter.
+    address public immutable yieldAsset;
 
     enum Status {
         Open,
@@ -67,7 +82,24 @@ contract AjoCircle is ReentrancyGuard {
         uint256 collateral;
     }
 
+    struct YieldInfo {
+        uint256 routed; // collateral of this circle currently inside the adapter
+        uint256 debt; // routed * accYieldPerUnit at last sync (MasterChef-style)
+        uint256 accrued; // yield attributed to the circle, not yet distributed
+        uint256 distributed; // yield credited to members at close
+    }
+
     uint256 public circleCount;
+
+    /// @notice Sum of `routed` over all circles.
+    uint256 public totalRouted;
+    /// @notice Cumulative yield per routed token, scaled by 1e27.
+    uint256 public accYieldPerUnit;
+    /// @notice Yield harvested while nothing was routed; folded in at the next harvest.
+    uint256 public unallocatedYield;
+    mapping(uint256 => YieldInfo) internal _yield;
+    /// @notice Yield credited to a member when their circle closed (already included in `claimable`).
+    mapping(uint256 => mapping(address => uint256)) public yieldEarned;
 
     mapping(uint256 => Circle) internal _circles;
     mapping(uint256 => address[]) internal _members; // join order
@@ -105,6 +137,10 @@ contract AjoCircle is ReentrancyGuard {
     event CollateralReturned(uint256 indexed circleId, address indexed member, uint256 amount);
     event CircleCompleted(uint256 indexed circleId);
     event Claimed(uint256 indexed circleId, address indexed account, uint256 amount);
+    event CollateralRouted(uint256 indexed circleId, uint256 amount);
+    event CollateralUnrouted(uint256 indexed circleId, uint256 amount);
+    event YieldHarvested(uint256 amount);
+    event YieldDistributed(uint256 indexed circleId, address indexed member, uint256 amount);
 
     // ------------------------------------------------------------------ errors
     error InvalidParams();
@@ -120,6 +156,18 @@ contract AjoCircle is ReentrancyGuard {
     error AlreadyReceivedPayout();
     error NothingToClaim();
     error UnknownCircle();
+    error AdapterShortfall();
+
+    /// @param adapter Optional IYieldAdapter (e.g. MUSD savings). Pass address(0) for no yield routing.
+    constructor(address adapter) {
+        yieldAdapter = IYieldAdapter(adapter);
+        if (adapter != address(0)) {
+            IYieldAdapter(adapter).bind();
+            address a = IYieldAdapter(adapter).asset();
+            yieldAsset = a;
+            IERC20(a).forceApprove(adapter, type(uint256).max);
+        }
+    }
 
     modifier exists(uint256 circleId) {
         if (circleId == 0 || circleId > circleCount) revert UnknownCircle();
@@ -219,7 +267,7 @@ contract AjoCircle is ReentrancyGuard {
     }
 
     /// @notice Creator starts a full circle. Fixes the payout order and opens round 0.
-    function start(uint256 circleId) external exists(circleId) {
+    function start(uint256 circleId) external nonReentrant exists(circleId) {
         Circle storage c = _circles[circleId];
         if (msg.sender != c.creator) revert NotCreator();
         if (c.status != Status.Open) revert WrongStatus();
@@ -245,6 +293,8 @@ contract AjoCircle is ReentrancyGuard {
         c.startedAt = uint64(block.timestamp);
         c.currentRound = 0;
         c.roundDeadline = uint64(block.timestamp) + c.roundLength;
+
+        if (_routes(c)) _route(circleId, uint256(c.contributionAmount) * members.length);
 
         emit CircleStarted(circleId, order, c.roundDeadline);
         emit RoundStarted(circleId, 0, order[0], c.roundDeadline);
@@ -279,6 +329,7 @@ contract AjoCircle is ReentrancyGuard {
         uint256 round = c.currentRound;
 
         address[] storage members = _members[circleId];
+        uint256 slashed;
         for (uint256 i; i < members.length; i++) {
             address who = members[i];
             Member storage m = _memberInfo[circleId][who];
@@ -288,12 +339,14 @@ contract AjoCircle is ReentrancyGuard {
             if (cover > 0) {
                 m.collateral -= cover;
                 c.pot += cover;
+                slashed += cover;
                 emit CollateralSlashed(circleId, round, who, cover);
             }
             m.defaulted = true;
             m.missedPayments++;
             emit MemberDefaulted(circleId, round, who);
         }
+        if (slashed > 0 && _routes(c)) _unroute(circleId, slashed);
         emit RoundSettled(circleId, round, msg.sender);
         _completeRound(circleId, false);
     }
@@ -313,6 +366,7 @@ contract AjoCircle is ReentrancyGuard {
         m.exited = true;
         c.activeMembers--;
         c.pot += forfeited;
+        if (forfeited > 0 && _routes(c)) _unroute(circleId, forfeited);
         emit MemberExited(circleId, round, msg.sender, forfeited);
 
         // If everyone still active has already paid, the round can complete now.
@@ -398,6 +452,21 @@ contract AjoCircle is ReentrancyGuard {
         c.status = Status.Completed;
         c.roundDeadline = 0;
         address[] storage members = _members[circleId];
+
+        uint256 yieldOut;
+        uint256 totalCol; // == remaining routed principal when routing is on
+        if (_routes(c)) {
+            YieldInfo storage y = _yield[circleId];
+            if (y.routed > 0) _unroute(circleId, y.routed); // harvests + syncs first
+            yieldOut = y.accrued;
+            y.accrued = 0;
+            y.distributed = yieldOut;
+            for (uint256 i; i < members.length; i++) {
+                totalCol += _memberInfo[circleId][members[i]].collateral;
+            }
+        }
+        if (yieldOut > 0) _distributeYield(circleId, yieldOut, totalCol);
+
         for (uint256 i; i < members.length; i++) {
             Member storage m = _memberInfo[circleId][members[i]];
             uint256 col = m.collateral;
@@ -408,6 +477,101 @@ contract AjoCircle is ReentrancyGuard {
             }
         }
         emit CircleCompleted(circleId);
+    }
+
+    // ------------------------------------------------------------------ yield (internal)
+
+    function _routes(Circle storage c) internal view returns (bool) {
+        return address(yieldAdapter) != address(0) && c.requireCollateral && address(c.token) == yieldAsset;
+    }
+
+    /// @dev Pull accrued yield from the adapter into this contract and spread it over routed principal.
+    ///      Measures the balance delta instead of trusting the adapter's return value.
+    function _harvest() internal {
+        uint256 before = IERC20(yieldAsset).balanceOf(address(this));
+        yieldAdapter.harvest(address(this));
+        uint256 got = IERC20(yieldAsset).balanceOf(address(this)) - before;
+        if (got > 0) emit YieldHarvested(got);
+        got += unallocatedYield;
+        if (got == 0) return;
+        if (totalRouted == 0) {
+            unallocatedYield = got;
+        } else {
+            unallocatedYield = 0;
+            accYieldPerUnit += (got * ACC) / totalRouted;
+        }
+    }
+
+    function _sync(uint256 circleId) internal {
+        YieldInfo storage y = _yield[circleId];
+        y.accrued += (y.routed * accYieldPerUnit) / ACC - y.debt;
+    }
+
+    function _setRouted(uint256 circleId, uint256 routed) internal {
+        YieldInfo storage y = _yield[circleId];
+        y.routed = routed;
+        y.debt = (routed * accYieldPerUnit) / ACC;
+    }
+
+    function _route(uint256 circleId, uint256 amount) internal {
+        if (amount == 0) return;
+        _harvest();
+        _sync(circleId);
+        totalRouted += amount;
+        _setRouted(circleId, _yield[circleId].routed + amount);
+        yieldAdapter.deposit(amount);
+        emit CollateralRouted(circleId, amount);
+    }
+
+    function _unroute(uint256 circleId, uint256 amount) internal {
+        _harvest();
+        _sync(circleId);
+        totalRouted -= amount;
+        _setRouted(circleId, _yield[circleId].routed - amount);
+        uint256 before = IERC20(yieldAsset).balanceOf(address(this));
+        yieldAdapter.withdraw(amount, address(this));
+        if (IERC20(yieldAsset).balanceOf(address(this)) - before < amount) revert AdapterShortfall();
+        emit CollateralUnrouted(circleId, amount);
+    }
+
+    /// @dev Pro rata to remaining collateral; if nobody has collateral left, equally among members who did not
+    ///      exit; if everyone exited, to the creator. Rounding dust goes to the first recipient.
+    function _distributeYield(uint256 circleId, uint256 amount, uint256 totalCol) internal {
+        address[] storage members = _members[circleId];
+        uint256 eligible;
+        if (totalCol == 0) {
+            for (uint256 i; i < members.length; i++) {
+                if (!_memberInfo[circleId][members[i]].exited) eligible++;
+            }
+            if (eligible == 0) {
+                _creditYield(circleId, _circles[circleId].creator, amount);
+                return;
+            }
+        }
+        uint256 given;
+        address first;
+        for (uint256 i; i < members.length; i++) {
+            Member storage m = _memberInfo[circleId][members[i]];
+            uint256 share;
+            if (totalCol > 0) {
+                if (m.collateral == 0) continue;
+                share = (amount * m.collateral) / totalCol;
+            } else {
+                if (m.exited) continue;
+                share = amount / eligible;
+            }
+            if (first == address(0)) first = members[i];
+            given += share;
+            _creditYield(circleId, members[i], share);
+        }
+        if (amount > given) _creditYield(circleId, first, amount - given);
+    }
+
+    function _creditYield(uint256 circleId, address who, uint256 amount) internal {
+        if (amount == 0) return;
+        claimable[circleId][who] += amount;
+        yieldEarned[circleId][who] += amount;
+        emit YieldDistributed(circleId, who, amount);
     }
 
     function _removeMemberPreservingOrder(uint256 circleId, address who) internal {
@@ -451,6 +615,26 @@ contract AjoCircle is ReentrancyGuard {
         Circle storage c = _circles[circleId];
         if (c.status != Status.Active) return address(0);
         return _payoutOrder[circleId][c.currentRound];
+    }
+
+    /// @notice Yield position of a circle. `earned` is an estimate that includes not-yet-harvested yield.
+    /// @return routed Collateral currently earning in the adapter.
+    /// @return earned Yield attributed so far (estimate while active; final amount once completed).
+    /// @return distributed Yield credited to members at close.
+    function getYield(uint256 circleId)
+        external
+        view
+        returns (uint256 routed, uint256 earned, uint256 distributed)
+    {
+        YieldInfo storage y = _yield[circleId];
+        routed = y.routed;
+        distributed = y.distributed;
+        if (distributed > 0) return (routed, distributed, distributed);
+        uint256 acc = accYieldPerUnit;
+        if (address(yieldAdapter) != address(0) && totalRouted > 0) {
+            acc += ((yieldAdapter.pendingYield() + unallocatedYield) * ACC) / totalRouted;
+        }
+        earned = y.accrued + (y.routed * acc) / ACC - y.debt;
     }
 
     /// @notice Paid-status of every member for a round, aligned with `getMembers`.
