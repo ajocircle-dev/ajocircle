@@ -2,11 +2,11 @@ import { formatUnits } from "viem";
 
 export const short = (a?: string) => (a ? `${a.slice(0, 6)}…${a.slice(-4)}` : "");
 
-export const fmt = (v: bigint | undefined, decimals = 18) => {
+export const fmt = (v: bigint | undefined, decimals = 18, places = 2) => {
   if (v === undefined) return "…";
   const s = formatUnits(v, decimals);
   const [i, f = ""] = s.split(".");
-  const frac = f.slice(0, 2).replace(/0+$/, "");
+  const frac = f.slice(0, places).replace(/0+$/, "");
   return frac ? `${Number(i).toLocaleString()}.${frac}` : Number(i).toLocaleString();
 };
 

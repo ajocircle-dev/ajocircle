@@ -7,6 +7,7 @@ import { ajoAddress, chain, explorerUrl, faucetUrl } from "@/lib/config";
 import { STATUS, duration, fmt, short } from "@/lib/format";
 import { useTx } from "@/lib/useTx";
 import { History } from "./History";
+import { useYieldConfig } from "./MusdBanner";
 
 type Circle = {
   creator: Address;
@@ -111,6 +112,17 @@ export function CircleView({ id }: { id: bigint }) {
     query: { enabled: !!me, refetchInterval: 10_000 },
   });
 
+  const yieldCfg = useYieldConfig();
+  const { data: yieldData } = useReadContracts({
+    contracts: [
+      { ...ajo, functionName: "getYield", args: [id] },
+      { ...ajo, functionName: "yieldEarned", args: [id, (me ?? "0x0000000000000000000000000000000000000000") as Address] },
+    ],
+    query: { enabled: !!yieldCfg.adapter, refetchInterval: 10_000 },
+  });
+  const yieldPos = yieldData?.[0]?.result as readonly [bigint, bigint, bigint] | undefined;
+  const myYield = yieldData?.[1]?.result as bigint | undefined;
+
   if (!ajoAddress) return <div className="card error">NEXT_PUBLIC_AJO_ADDRESS is not set.</div>;
   if (isLoading) return <div className="card muted">Loading circle…</div>;
   if (error || !circle) return <div className="card error">Circle #{id.toString()} not found on {chain.name}.</div>;
@@ -170,6 +182,36 @@ export function CircleView({ id }: { id: bigint }) {
           <div><span>Payout order</span><strong>{circle.randomOrder ? "Random at start" : "Join order"}</strong></div>
           <div><span>Collateral</span><strong>{circle.requireCollateral ? `${fmt(amount, decimals)} ${symbol}` : "None"}</strong></div>
         </div>
+
+        {(() => {
+          const routes =
+            !!yieldCfg.adapter && circle.requireCollateral && circle.token.toLowerCase() === yieldCfg.asset?.toLowerCase();
+          if (!routes) {
+            return symbol === "MUSD" ? (
+              <p className="muted small yieldline">
+                Powered by MUSD · collateral held as plain MUSD
+                {yieldCfg.adapter ? (circle.requireCollateral ? "" : " (no collateral in this circle, so nothing to earn on)") : " (no yield adapter on this deployment)"}
+              </p>
+            ) : null;
+          }
+          const [routed, earned, distributed] = yieldPos ?? [0n, 0n, 0n];
+          return (
+            <div className="yieldbox">
+              <div><span>Collateral earning</span><strong>{fmt(routed, decimals)} {symbol}</strong></div>
+              <div>
+                <span>{circle.status === 2 ? "Yield paid to members" : "Yield earned so far"}</span>
+                <strong className="good">+{fmt(circle.status === 2 ? distributed : earned, decimals, 4)} {symbol}</strong>
+              </div>
+              {myYield !== undefined && myYield > 0n && (
+                <div><span>Your yield</span><strong className="good">+{fmt(myYield, decimals, 4)} {symbol}</strong></div>
+              )}
+              <p className="muted small">
+                Collateral sits in the MUSD Savings Vault while the circle runs; the round pot never leaves the contract,
+                so payouts are never delayed. At close, yield is shared pro rata to the collateral each member still holds.
+              </p>
+            </div>
+          );
+        })()}
 
         {active && (
           <div className="next">

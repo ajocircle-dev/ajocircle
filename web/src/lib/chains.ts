@@ -12,6 +12,15 @@ export const mezoTestnet = defineChain({
   testnet: true,
 });
 
+// Mezo mainnet: only needed for the sMUSD-yield deployment (the MUSD Savings Vault is mainnet-only).
+export const mezo = defineChain({
+  id: 31612,
+  name: "Mezo",
+  nativeCurrency: { name: "Bitcoin", symbol: "BTC", decimals: 18 },
+  rpcUrls: { default: { http: ["https://mainnet.mezo.public.validationcloud.io"] } },
+  blockExplorers: { default: { name: "Mezo Explorer", url: "https://explorer.mezo.org" } },
+});
+
 export const arc = defineChain({
   id: 5042,
   name: "Arc",

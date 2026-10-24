@@ -1,6 +1,7 @@
 import { CreateCircle } from "@/components/CreateCircle";
 import { CircleList } from "@/components/CircleList";
 import { JoinById } from "@/components/JoinById";
+import { MusdBanner } from "@/components/MusdBanner";
 
 export default function Home() {
   return (
@@ -12,6 +13,7 @@ export default function Home() {
           contract keeps the books: who paid, who&apos;s next, and what happens if someone misses a payment.
         </p>
       </section>
+      <MusdBanner />
       <div className="grid2">
         <CreateCircle />
         <div>

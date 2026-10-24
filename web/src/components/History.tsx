@@ -58,6 +58,9 @@ export function History({ circleId, decimals, symbol }: { circleId: bigint; deci
       case "CollateralReturned": return `${amt(a.amount)} collateral returned to ${who(a.member)}`;
       case "CircleCompleted": return "Circle completed 🎉";
       case "Claimed": return `${who(a.account)} claimed ${amt(a.amount)}`;
+      case "CollateralRouted": return `${amt(a.amount)} collateral put to work in the MUSD Savings Vault`;
+      case "CollateralUnrouted": return `${amt(a.amount)} collateral pulled back from the vault`;
+      case "YieldDistributed": return `${who(a.member)} earned ${amt(a.amount)} yield`;
       default: return r.name;
     }
   };

@@ -1,9 +1,9 @@
 import { http, createConfig } from "wagmi";
 import { injected } from "@wagmi/core"; // avoids bundling every optional connector SDK
-import { anvil, arc, arcTestnet, mezoTestnet } from "./chains";
+import { anvil, arc, arcTestnet, mezo, mezoTestnet } from "./chains";
 import type { Address, Chain } from "viem";
 
-type ChainKey = "mezoTestnet" | "arc" | "arcTestnet" | "anvil";
+type ChainKey = "mezoTestnet" | "mezo" | "arc" | "arcTestnet" | "anvil";
 
 const CHAINS: Record<ChainKey, { chain: Chain; defaultToken?: Address; tokenLabel: string; faucet?: string }> = {
   mezoTestnet: {
@@ -11,6 +11,11 @@ const CHAINS: Record<ChainKey, { chain: Chain; defaultToken?: Address; tokenLabe
     defaultToken: "0x118917a40FAF1CD7a13dB0Ef56C86De7973Ac503", // MUSD (Mezo docs, contracts reference)
     tokenLabel: "MUSD",
     faucet: "https://faucet.test.mezo.org/",
+  },
+  mezo: {
+    chain: mezo,
+    defaultToken: "0xdD468A1DDc392dcdbEf6db6e34E89AA338F9F186", // MUSD mainnet
+    tokenLabel: "MUSD",
   },
   arc: {
     chain: arc,
