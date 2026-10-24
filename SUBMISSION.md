@@ -1,6 +1,6 @@
 # AKINDO submission draft: Mezo Buildathon Wave 1
 
-Deadline: **Mon 26 Oct 2026, 16:00 WAT** (15:00 UTC). Fill the `TBD` links after the Deployer bot ships.
+Deadline: **Mon 26 Oct 2026, 16:00 WAT** (15:00 UTC). Live app: https://ajocircle.pages.dev · repo: https://github.com/ajocircle-dev/ajocircle
 Required materials are a live link, a public repo, the deck and the 2-minute video.
 
 ---
@@ -50,7 +50,7 @@ Mezo (testnet for Wave 1; mainnet with sMUSD yield planned for Wave 2)
 **Project status**
 Working MVP. The contracts are complete and tested, and the web app covers create, invite, join, contribute,
 auto-payout, settle/default, early exit, claim, the yield panel and the onchain history.
-Live on Mezo testnet: `TBD contract address` · app `TBD URL` · repo `TBD GitHub URL`.
+Live on Mezo testnet: contract [`0x94A5014b54bF748660AC0D953De67416fe34ea2C`](https://explorer.test.mezo.org/address/0x94A5014b54bF748660AC0D953De67416fe34ea2C) · app https://ajocircle.pages.dev (circle pages: `https://ajocircle.pages.dev/circle/?id=N`) · repo https://github.com/ajocircle-dev/ajocircle
 
 **Readiness**
 Testnet MVP (demo-ready). Unaudited, and not for real funds yet.

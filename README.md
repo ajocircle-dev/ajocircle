@@ -2,6 +2,8 @@
 
 > Rotating savings with stablecoins. The smart contract keeps the books, so nobody has to trust the treasurer.
 
+**Live demo: [ajocircle.pages.dev](https://ajocircle.pages.dev)** (Mezo testnet, chain 31611; contract `0x94A5014b54bF748660AC0D953De67416fe34ea2C`)
+
 ## Problem
 
 Millions of Nigerians save through **ajo / esusu** (chama in Kenya, tontine in francophone Africa): a group
@@ -24,7 +26,7 @@ AjoCircle puts the circle in a smart contract and denominates it in a stablecoin
   *anyone* can settle it after the deadline: the missed payment is slashed from collateral, the recipient still
   gets a full pot, and the member is publicly flagged as a defaulter.
 - **Fair ordering.** The payout order is either join order or shuffled at start.
-- **Shareable.** Each circle has an invite link (`/circle/<id>`) that you can drop into the family WhatsApp group.
+- **Shareable.** Each circle has an invite link (`/circle/?id=N`, e.g. `https://ajocircle.pages.dev/circle/?id=1`) that you can drop into the family WhatsApp group.
 - **Collateral that earns (MUSD).** On Mezo, collateral that would otherwise sit idle for the whole circle can be
   routed into the **MUSD Savings Vault (sMUSD)** through a small adapter. The yield goes back to members when the
   circle closes. See [MUSD yield](#musd-yield).
@@ -193,11 +195,24 @@ npm run build && npm start   # or: npm run dev
 ```
 After changing the contract, regenerate the ABI with `forge build` and then `npm run abi`.
 
+### Static hosting (live site)
+The web app is a fully static Next.js export (`output: 'export'`), hosted on Cloudflare Pages at https://ajocircle.pages.dev.
+Circle pages are resolved on the client, so the route is `/circle/?id=N` (ids start at 1). To redeploy after a web change:
+```bash
+cd web
+NEXT_PUBLIC_CHAIN=mezoTestnet \
+NEXT_PUBLIC_AJO_ADDRESS=0x94A5014b54bF748660AC0D953De67416fe34ea2C \
+NEXT_PUBLIC_DEPLOY_BLOCK=16336238 \
+npm run build            # writes the static site to web/out
+npx -p node@22 -p wrangler wrangler pages deploy out --project-name ajocircle --branch main
+```
+For a GitHub Pages project site, also set `NEXT_PUBLIC_BASE_PATH=/ajocircle`.
+
 ## Deployed addresses
 
 | Network | AjoCircle | Deploy block | Explorer | Live app |
 | --- | --- | --- | --- | --- |
-| Mezo testnet (31611), no adapter | `0x94A5014b54bF748660AC0D953De67416fe34ea2C` | `16336238` | [explorer](https://explorer.test.mezo.org/address/0x94A5014b54bF748660AC0D953De67416fe34ea2C) · [Sourcify](https://repo.sourcify.dev/31611/0x94A5014b54bF748660AC0D953De67416fe34ea2C) | `TBD` |
+| Mezo testnet (31611), no adapter | `0x94A5014b54bF748660AC0D953De67416fe34ea2C` | `16336238` | [explorer](https://explorer.test.mezo.org/address/0x94A5014b54bF748660AC0D953De67416fe34ea2C) · [Sourcify](https://repo.sourcify.dev/31611/0x94A5014b54bF748660AC0D953De67416fe34ea2C) | [ajocircle.pages.dev](https://ajocircle.pages.dev) |
 | Arc mainnet (5042) | `TBD` | `TBD` | https://explorer.arc.io/address/TBD | `TBD` |
 
 Mezo testnet deploy tx: [0xdef687…5a06](https://explorer.test.mezo.org/tx/0xdef687fbcbb0fdc8c46378e5249d5f88a034a88548300e2b8f15bcb317ce5a06). Full record and demo-wallet transactions: [`deployments/mezo-testnet.md`](deployments/mezo-testnet.md).

@@ -15,6 +15,8 @@ Deployer: `0x7E084Cb20EBe4a3ca1353EF24c96D048AAB50146` (keystore `mezo-testnet-d
 - Broadcast: deployments/mezo-testnet-v2.json
 - Verification: Sourcify exact_match (https://repo.sourcify.dev/31611/0x94A5014b54bF748660AC0D953De67416fe34ea2C). Blockscout submission queued ("Pending in queue"); explorer verifier has verified 0 contracts in 24h (last Oct 21).
 
+Live app: https://ajocircle.pages.dev (Cloudflare Pages, static export; circle pages at https://ajocircle.pages.dev/circle/?id=N, ids start at 1)
+
 Web env: NEXT_PUBLIC_CHAIN=mezoTestnet, NEXT_PUBLIC_AJO_ADDRESS=0x94A5014b54bF748660AC0D953De67416fe34ea2C, NEXT_PUBLIC_DEPLOY_BLOCK=16336238
 
 ## AjoCircle v1 (safety net)
