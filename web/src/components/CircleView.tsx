@@ -50,7 +50,7 @@ function useNow() {
 }
 
 function countdown(secs: number) {
-  if (secs <= 0) return "deadline passed";
+  if (secs <= 0) return "Deadline passed, awaiting settle";
   const d = Math.floor(secs / 86400), h = Math.floor((secs % 86400) / 3600), m = Math.floor((secs % 3600) / 60), s = secs % 60;
   return d > 0 ? `${d}d ${h}h ${m}m left` : `${h}h ${m}m ${s}s left`;
 }

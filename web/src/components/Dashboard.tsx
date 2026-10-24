@@ -28,7 +28,7 @@ function rel(secs: number) {
   const a = Math.abs(secs);
   const d = Math.floor(a / 86400), h = Math.floor((a % 86400) / 3600), m = Math.floor((a % 3600) / 60), s = a % 60;
   const txt = d > 0 ? `${d}d ${h}h` : h > 0 ? `${h}h ${m}m` : m > 0 ? `${m}m ${s}s` : `${s}s`;
-  return secs >= 0 ? `in ${txt}` : `${txt} overdue`;
+  return `in ${txt}`;
 }
 const localTime = (ts: number) =>
   new Date(ts * 1000).toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
@@ -161,7 +161,7 @@ function Summary({ rows, loading, now }: { rows?: Row[]; loading: boolean; now: 
               {fmt(potSize(n), 18)} {sym(n)} → <span className="mono">{short(nextRecipient(n))}</span>
             </span>
             <span className={`small ${dl - now < 0 ? "error" : "good"}`}>
-              {dl - now < 0 ? `Deadline passed ${rel(dl - now).replace(" overdue", "")} ago · ready to settle` : rel(dl - now)}
+              {dl - now < 0 ? `Deadline passed, awaiting settle (${localTime(dl)})` : `${rel(dl - now)} · ${localTime(dl)}`}
             </span>
           </>
         ) : (
@@ -172,6 +172,16 @@ function Summary({ rows, loading, now }: { rows?: Row[]; loading: boolean; now: 
         )}
       </div>
     </div>
+  );
+}
+
+function Deadline({ dl, now }: { dl: number; now: number }) {
+  const passed = dl - now < 0;
+  return (
+    <span className="dl" title={passed ? "Anyone can now settle this round: unpaid members are slashed and the pot is credited to the recipient." : undefined}>
+      <span className={passed ? "pill warnpill" : ""}>{passed ? "Deadline passed, awaiting settle" : rel(dl - now)}</span>
+      <span className="muted small">{passed ? `was ${localTime(dl)}` : localTime(dl)}</span>
+    </span>
   );
 }
 
@@ -291,10 +301,7 @@ function AllCircles({ rows, loading, now }: { rows?: Row[]; loading: boolean; no
                     </td>
                     <td data-label="Next deadline">
                       {r.c.status === 1 ? (
-                        <span className="dl">
-                          <span className={dl - now < 0 ? "error" : ""}>{rel(dl - now)}</span>
-                          <span className="muted small">{localTime(dl)}</span>
-                        </span>
+                        <Deadline dl={dl} now={now} />
                       ) : <span className="muted">{r.c.status === 0 ? "Not started" : "—"}</span>}
                     </td>
                     <td data-label="Status"><StatusCell r={r} /></td>
@@ -413,7 +420,7 @@ function MyCircles({ rows, loading, now }: { rows?: Row[]; loading: boolean; now
                       <>Round {pos + 1} of {r.c.maxMembers}{info?.receivedPayout ? <span className="pill s2 ml">received</span> : r.c.status === 1 && pos === r.c.currentRound ? <span className="pill orangepill ml">this round</span> : null}</>}
                   </td>
                   <td data-label="Collateral" className={col.cls}>{col.t}</td>
-                  <td data-label="Next deadline">{r.c.status === 1 ? <span className="dl"><span className={dl - now < 0 ? "error" : ""}>{rel(dl - now)}</span><span className="muted small">{localTime(dl)}</span></span> : <span className="muted">—</span>}</td>
+                  <td data-label="Next deadline">{r.c.status === 1 ? <Deadline dl={dl} now={now} /> : <span className="muted">—</span>}</td>
                   <td className="go"><Link className="btn ghost small-btn" href={`/circle/?id=${r.id}`}>Open →</Link></td>
                 </tr>
               );
