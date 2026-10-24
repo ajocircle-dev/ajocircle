@@ -25,6 +25,64 @@ AjoCircle puts the circle in a smart contract and denominates it in a stablecoin
   gets a full pot, and the member is publicly flagged as a defaulter.
 - **Fair ordering.** The payout order is either join order or shuffled at start.
 - **Shareable.** Each circle has an invite link (`/circle/<id>`) that you can drop into the family WhatsApp group.
+- **Collateral that earns (MUSD).** On Mezo, collateral that would otherwise sit idle for the whole circle can be
+  routed into the **MUSD Savings Vault (sMUSD)** through a small adapter. The yield goes back to members when the
+  circle closes. See [MUSD yield](#musd-yield).
+
+## MUSD yield
+
+**The design rule is that payouts never wait on the yield source.**
+
+- **What is routed.** Only **member collateral** is routed. It is posted at `join` and normally only needed at
+  close, so it is the one balance that really is idle. The round **pot is never routed**: it stays in AjoCircle
+  and is paid out in the same transaction as the last contribution.
+- **When.** All collateral goes into the adapter at `start`. It is pulled back in the same transaction whenever it
+  is needed: slashed at `settleRound`, forfeited at `exitCircle`, or returned at close.
+- **Who gets the yield.** Yield is attributed to circles pro rata to routed principal over time (MasterChef-style
+  index, and harvest happens before every change in principal). At close it is credited to `claimable` pro rata
+  to each member's remaining collateral. A defaulter whose collateral was slashed earns less. An exited member
+  earns nothing. If nobody has collateral left, the yield is split equally among the members who didn't exit.
+- **Optional per deployment.** `new AjoCircle(adapter)`. `address(0)` means plain MUSD/USDC rails, used for Arc
+  and for Mezo testnet. Only circles that use the adapter's asset *and* require collateral are routed.
+- **Adapter contract** ([`IYieldAdapter`](contracts/src/yield/IYieldAdapter.sol)): single owner (bound once by the
+  AjoCircle constructor), principal-protected, instant `withdraw`, and yield paid in the asset. AjoCircle checks
+  balance deltas and reverts on any shortfall.
+
+| Adapter | Source | Network | Status |
+| --- | --- | --- | --- |
+| `MUSDSavingsRateAdapter` | MUSD Savings Vault / sMUSD `0xb4D498029af77680cD1eF828b967f010d06C51CC` (impl `MUSDSavingsRate` `0xb33c3f97…9e87`), no withdrawal fee, 0h time-lock | Mezo **mainnet** 31612 | Unit-tested against a mock with the same ABI, plus a **local fork test against the real vault** (`test/fork/`) |
+| `MockYieldAdapter` | holds the token; "yield" is whatever gets sent to it | any | tests / local demo |
+
+### Why Mezo testnet ships without yield
+
+Checked on 2026-10-24 with `eth_call` against `https://rpc.test.mezo.org` (chain 31611):
+
+1. **The MUSD Savings Vault isn't on testnet.** `cast codesize 0xb4D4…51CC` on testnet returns `0`. The same goes
+   for the Ditto MUSD vault `0x9171…14F8`. No `MUSDSavingsRate` deployment is published for testnet in
+   `mezo-org/musd` (only `matsnet/` core contracts), `mezo-org/tigris` (`deployments/testnet/` has the DEX and
+   gauges only) or the docs.
+2. **The only callable MUSD sink on testnet is the StabilityPool**, `0x1CCA7E410eE41739792eA0A24e00349Dd247680e`
+   (from `musd/solidity/artifacts/deployments/matsnet/StabilityPool.json`). `musd()` returns testnet MUSD and
+   `getTotalMUSDDeposits()` returns ≈86.23M. But it isn't a safe home for ajo money:
+   - **Principal shrinks.** Liquidations burn depositors' MUSD. The protocol (PCV `0x4dDD…80Af`) deposited 100M,
+     and `getCompoundedMUSDDeposit` now reads 86.23M, which is **−13.8%**.
+   - **Withdrawals can be frozen.** `eth_call withdrawFromSP(1)` from the PCV reverts with *"StabilityPool:
+     Cannot withdraw while there are troves with ICR < MCR"*. The lowest trove is at 109.1% ICR against a 110% MCR.
+   - **The yield is BTC, not MUSD.** Liquidation gains are paid in collateral.
+
+   Each of these breaks the "payouts on time, principal intact" promise, so we don't route anything there.
+3. On testnet, AjoCircle is therefore deployed with `adapter = address(0)` (native MUSD). The interface, the
+   adapters, the UI and the tests are all in place. Turning on yield for a mainnet deployment is one env var:
+   `SMUSD_VAULT=0xb4D4…51CC`.
+
+Re-check the testnet facts:
+```bash
+cast codesize 0xb4D498029af77680cD1eF828b967f010d06C51CC --rpc-url https://rpc.test.mezo.org        # 0
+cast call 0x1CCA7E410eE41739792eA0A24e00349Dd247680e "getCompoundedMUSDDeposit(address)(uint256)" \
+  0x4dDD70f4C603b6089c07875Be02fEdFD626b80Af --rpc-url https://rpc.test.mezo.org
+cast call 0x1CCA7E410eE41739792eA0A24e00349Dd247680e "withdrawFromSP(uint256)" 1 \
+  --from 0x4dDD70f4C603b6089c07875Be02fEdFD626b80Af --rpc-url https://rpc.test.mezo.org   # reverts (ICR < MCR)
+```
 
 ## How a circle works
 
@@ -40,7 +98,10 @@ contributions. When their turn comes, that round's pot is split equally between 
 A member who has already been paid **cannot** exit, because they still owe the circle. If they stop paying, they
 are handled as a defaulter.
 
-**Known limitations (hackathon scope):** the shuffled order uses onchain pseudo-randomness, which block producers
+**Known limitations (hackathon scope):** the yield adapter is trusted at deploy time. If it stops returning
+principal instantly, `settleRound`, `exitCircle` and the final round revert until it does (pots already paid are
+unaffected), so only wrap principal-protected, instant-withdraw sources. Yield accounting rounds down, so a few wei
+can stay in the contract.  the shuffled order uses onchain pseudo-randomness, which block producers
 can influence (use a VRF in production). Collateral covers one missed payment, so a member with no collateral
 left only makes that round's pot smaller. Fee-on-transfer and rebasing tokens are not supported. There is a
 cap of 50 members per circle so loops stay bounded. The contracts are **unaudited**.
@@ -52,12 +113,15 @@ ajocircle/
 ├── contracts/                 Foundry project (Solidity 0.8.24, OpenZeppelin 5.1)
 │   ├── src/AjoCircle.sol      single multi-circle contract: SafeERC20 + ReentrancyGuard, events for every action
 │   ├── src/MockERC20.sol      mintable token for tests and local anvil
-│   ├── test/AjoCircle.t.sol   happy path, missed payment, early exit, edge cases, fuzz
-│   └── script/Deploy.s.sol    env-driven deploy script (no keys in code)
+│   ├── src/yield/             IYieldAdapter, MUSDSavingsRateAdapter (sMUSD), MockYieldAdapter
+│   ├── test/AjoCircle.t.sol   happy path, missed payment, early exit, edge cases, fuzz (no adapter)
+│   ├── test/AjoCircleYield.t.sol  routing, accrual, pro-rata distribution, zero-yield, solvency fuzz
+│   ├── test/fork/             opt-in fork test against the real Mezo mainnet sMUSD vault
+│   └── script/Deploy.s.sol    env-driven deploy script (no keys in code), optional adapter
 └── web/                       Next.js 15 (App Router) + wagmi 2 + viem 2, TypeScript
-    ├── src/lib/chains.ts      Mezo testnet / Arc / Arc testnet / anvil definitions
+    ├── src/lib/chains.ts      Mezo testnet / Mezo / Arc / Arc testnet / anvil definitions
     ├── src/lib/config.ts      chain picked by NEXT_PUBLIC_CHAIN, injected-wallet wagmi config
-    ├── src/components/        CreateCircle, CircleList, CircleView, History (event log), Connect
+    ├── src/components/        CreateCircle, CircleList, CircleView (+ yield panel), MusdBanner, History, Connect
     └── src/app/circle/[id]    the shareable circle page
 ```
 
@@ -89,18 +153,21 @@ git submodule update --init --recursive
 cd contracts
 forge build
 forge test -vv
+# optional: run the adapter against the real Mezo mainnet sMUSD vault in a LOCAL fork (nothing is sent)
+MEZO_MAINNET_RPC=https://mainnet.mezo.public.validationcloud.io forge test --match-path 'test/fork/*' -vv
 ```
 
 ### Local end-to-end (anvil)
 ```bash
 anvil                                    # terminal 1
 cd contracts                             # terminal 2
-DEPLOY_MOCK_TOKEN=true CREATE_DEMO_CIRCLE=true \
+DEPLOY_MOCK_TOKEN=true DEPLOY_MOCK_ADAPTER=true CREATE_DEMO_CIRCLE=true \
   forge script script/Deploy.s.sol --rpc-url http://127.0.0.1:8545 --broadcast \
   --private-key <one of anvil's printed dev keys>
 cd ../web && npm install
 NEXT_PUBLIC_CHAIN=anvil NEXT_PUBLIC_AJO_ADDRESS=<AjoCircle address> \
   NEXT_PUBLIC_DEFAULT_TOKEN=<MockERC20 address> npm run dev
+# to show yield locally: after `start`, send some mock tokens to the MockYieldAdapter address
 ```
 
 ### Testnet deploy (Mezo)
@@ -110,6 +177,9 @@ cast wallet import deployer --interactive         # store the key in Foundry's e
 TOKEN_ADDRESS=0x118917a40FAF1CD7a13dB0Ef56C86De7973Ac503 \
   forge script script/Deploy.s.sol --rpc-url mezo_testnet --account deployer --broadcast
 ```
+This deploys with no yield adapter, which is the intended setup for testnet (see above). For a Mezo **mainnet**
+deployment with sMUSD yield, add `SMUSD_VAULT=0xb4D498029af77680cD1eF828b967f010d06C51CC`, use
+`--rpc-url https://mainnet.mezo.public.validationcloud.io` and set `NEXT_PUBLIC_CHAIN=mezo`.
 Gas on Mezo is paid in BTC, which you can get from the [faucet](https://faucet.test.mezo.org/). To get test MUSD,
 borrow it against test BTC at [testnet.mezo.org](https://testnet.mezo.org). Note that borrowing has a
 **minimum debt of 2,000 MUSD**.
@@ -127,7 +197,7 @@ After changing the contract, regenerate the ABI with `forge build` and then `npm
 
 | Network | AjoCircle | Deploy block | Explorer | Live app |
 | --- | --- | --- | --- | --- |
-| Mezo testnet (31611) | `TBD` | `TBD` | https://explorer.test.mezo.org/address/TBD | `TBD` |
+| Mezo testnet (31611), no adapter | `TBD` | `TBD` | https://explorer.test.mezo.org/address/TBD | `TBD` |
 | Arc mainnet (5042) | `TBD` | `TBD` | https://explorer.arc.io/address/TBD | `TBD` |
 
 Example transactions (contribution and payout): `TBD`

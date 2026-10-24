@@ -1,0 +1,68 @@
+# AKINDO submission draft: Mezo Buildathon Wave 1
+
+Deadline: **Mon 26 Oct 2026, 16:00 WAT** (15:00 UTC). Fill the `TBD` links after the Deployer bot ships.
+Required materials are a live link, a public repo, the deck and the 2-minute video.
+
+---
+
+**Project name**
+AjoCircle
+
+**Category (3–5 words)**
+Onchain community savings circles
+
+**TL;DR**
+AjoCircle puts Nigeria's ajo/esusu rotating savings circles onchain in MUSD. Friends pool BTC-backed dollars, the
+contract pays each round's pot automatically, collateral covers missed payments, and idle collateral can earn in
+Mezo's MUSD Savings Vault. It's the same savings habit, without the treasurer you have to trust.
+
+**How it works (incl. MUSD use)**
+1. A creator sets up a circle: contribution in MUSD, number of members, round length, optional collateral, and
+   join-order or shuffled payouts. Members join through a shareable invite link and post one contribution as collateral.
+2. Each round every member contributes MUSD. When the last payment lands, the contract sends the whole pot to that
+   round's recipient in the same transaction.
+3. If someone misses the deadline, anyone can settle the round. The missed payment is slashed from collateral, the
+   recipient still gets a full pot, and the member is flagged as a defaulter onchain. Members who haven't been paid
+   can exit early by forfeiting their collateral and their turn.
+4. **MUSD use:** MUSD is the unit of account for every contribution, pot and collateral. Through an `IYieldAdapter`,
+   collateral (never the pot) can be routed into the **MUSD Savings Vault (sMUSD)**, which has no lock-up. The yield is
+   shared back to members pro rata at close. On Mezo testnet the circle runs on native MUSD, because the sMUSD vault is
+   mainnet-only and the testnet StabilityPool can freeze withdrawals and lose principal. The sMUSD adapter is
+   fork-tested against the real mainnet vault.
+
+**Target group**
+Nigerian (and wider African) informal savers who already run ajo/esusu/chama groups: market traders, church and
+alumni groups, office colleagues and diaspora families. Mostly mobile-first, often underbanked, and wanting
+dollar-denominated savings.
+
+**Tech stack**
+Solidity 0.8.24, Foundry and OpenZeppelin 5 (SafeERC20, ReentrancyGuard). 32 tests (unit, fuzz, yield accounting)
+plus an opt-in mainnet-fork test. Next.js 15, React 19, wagmi 2 and viem 2 (TypeScript). Mezo testnet (chain 31611),
+MUSD `0x118917a40FAF1CD7a13dB0Ef56C86De7973Ac503`. MUSD Savings Vault adapter for Mezo mainnet
+(`0xb4D498029af77680cD1eF828b967f010d06C51CC`).
+
+**Track**
+Track 2: Access and Distribution for MUSD/MEZO
+
+**Chain**
+Mezo (testnet for Wave 1; mainnet with sMUSD yield planned for Wave 2)
+
+**Project status**
+Working MVP. The contracts are complete and tested, and the web app covers create, invite, join, contribute,
+auto-payout, settle/default, early exit, claim, the yield panel and the onchain history.
+Live on Mezo testnet: `TBD contract address` · app `TBD URL` · repo `TBD GitHub URL`.
+
+**Readiness**
+Testnet MVP (demo-ready). Unaudited, and not for real funds yet.
+
+**Next 3 milestones**
+1. **Wave 2 (Nov 2–15):** WhatsApp/Telegram bot for payment reminders, "who's paid" status and invite links. Mezo
+   mainnet deploy with sMUSD collateral yield switched on.
+2. **December pilot:** 5 real ajo circles in Lagos (about 50 members), with naira ↔ MUSD on/off-ramp partners for
+   onboarding.
+3. **Q1 2027:** onchain good-payer reputation from repayment history, VRF-based payout order, larger circles and a
+   security audit.
+
+**Team info**
+[TBD: names, roles, one-line backgrounds, contact email used at registration, X/Telegram, GitHub.]
+Note: KYB is required before any MEZO payout, so prepare ID, proof of address and a W-8BEN/W-9 early.
