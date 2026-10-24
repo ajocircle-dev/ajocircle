@@ -1,17 +1,17 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { useAccount, useReadContracts } from "wagmi";
+import { useReadContracts } from "wagmi";
 import { decodeEventLog, erc20Abi, isAddress, parseUnits, type Address } from "viem";
 import { ajoAbi } from "@/lib/abi";
 import { defaultToken } from "@/lib/config";
 import { useTx } from "@/lib/useTx";
+import { TxButton } from "./TxButton";
 
 const UNITS = { minutes: 60, hours: 3600, days: 86400 } as const;
 
 export function CreateCircle() {
   const router = useRouter();
-  const { isConnected } = useAccount();
   const tx = useTx();
   const [name, setName] = useState("Family Ajo");
   const [token, setToken] = useState<string>(defaultToken);
@@ -33,10 +33,24 @@ export function CreateCircle() {
   const symbol = meta?.[0]?.result as string | undefined;
   const decimals = meta?.[1]?.result as number | undefined;
 
-  async function submit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!valid || decimals === undefined) return;
-    const receipt = await tx.run(() =>
+  const amountOk = /^\d+(\.\d+)?$/.test(amount) && Number(amount) > 0;
+  const membersOk = members >= 2 && members <= 50;
+  const roundOk = roundLen >= 1;
+  const problem = !valid
+    ? "Enter a valid token address"
+    : decimals === undefined
+      ? "Reading token…"
+      : !amountOk
+        ? "Enter a contribution above 0"
+        : !membersOk
+          ? "Members must be 2 to 50"
+          : !roundOk
+            ? "Round length must be at least 1"
+            : "";
+
+  async function submit() {
+    if (problem || decimals === undefined) return;
+    const receipt = await tx.run("Create circle", () =>
       tx.send("Create circle", "createCircle", [
         token,
         parseUnits(amount, decimals),
@@ -46,6 +60,7 @@ export function CreateCircle() {
         collateral,
         name,
       ]),
+      `"${name}" created`,
     );
     if (!receipt) return;
     for (const log of receipt.logs) {
@@ -60,7 +75,7 @@ export function CreateCircle() {
   }
 
   return (
-    <form className="card" onSubmit={submit}>
+    <form className="card" id="create" onSubmit={(e) => { e.preventDefault(); }}>
       <h2>Start a circle</h2>
       <label>
         Name
@@ -106,11 +121,15 @@ export function CreateCircle() {
         Each round everyone pays {amount || "0"} {symbol ?? ""}; the pot of{" "}
         {(Number(amount || 0) * members).toLocaleString()} {symbol ?? ""} goes to that round&apos;s recipient.
       </p>
-      <button className="btn" disabled={!isConnected || !valid || decimals === undefined || tx.busy}>
-        {isConnected ? "Create circle" : "Connect a wallet first"}
-      </button>
-      {tx.status && <p className="muted">{tx.status}</p>}
-      {tx.error && <p className="error">{tx.error}</p>}
+      <TxButton
+        id="Create circle" current={tx.action} busy={tx.busy} onRun={submit}
+        busyText="Creating…" needsWalletText="Connect wallet to create"
+        disabled={!!problem} disabledReason={problem}
+      >
+        {problem && problem !== "Reading token…" ? problem : "Create circle"}
+      </TxButton>
+      {tx.status && <p className="muted small"><span className="spinner" aria-hidden /> {tx.status}</p>}
+      {tx.error && <p className="error small">{tx.error}</p>}
     </form>
   );
 }

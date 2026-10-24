@@ -1,32 +1,60 @@
 "use client";
-import { useAccount, useConnect, useDisconnect, useSwitchChain } from "wagmi";
-import { chain } from "@/lib/config";
+import { useEffect, useRef, useState } from "react";
+import { useAccount, useDisconnect } from "wagmi";
+import { chain, explorerUrl } from "@/lib/config";
 import { short } from "@/lib/format";
+import { Spinner, useWallet } from "./Wallet";
 
 export function Connect() {
-  const { address, isConnected, chainId } = useAccount();
-  const { connect, connectors, isPending } = useConnect();
+  const { address } = useAccount();
   const { disconnect } = useDisconnect();
-  const { switchChain } = useSwitchChain();
+  const w = useWallet();
+  const [open, setOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => setMounted(true), []);
+  useEffect(() => {
+    if (!open) return;
+    const off = (e: MouseEvent) => ref.current && !ref.current.contains(e.target as Node) && setOpen(false);
+    document.addEventListener("click", off);
+    return () => document.removeEventListener("click", off);
+  }, [open]);
 
-  if (!isConnected) {
-    const c = connectors[0];
+  if (!mounted || !w.isConnected) {
+    const noWallet = mounted && w.hasWallet === false;
     return (
-      <button className="btn" disabled={!c || isPending} onClick={() => c && connect({ connector: c })}>
-        {isPending ? "Connecting…" : "Connect wallet"}
+      <button
+        className={`btn ${noWallet ? "ghost" : ""}`}
+        onClick={() => w.connect()}
+        disabled={w.connecting}
+        title={noWallet ? "No browser wallet detected. Click for help." : undefined}
+      >
+        {w.connecting ? <><Spinner /> Check your wallet…</> : noWallet ? "Get a wallet" : "Connect wallet"}
       </button>
     );
   }
-  if (chainId !== chain.id) {
+  if (w.wrongNetwork) {
     return (
-      <button className="btn warn" onClick={() => switchChain({ chainId: chain.id })}>
-        Switch to {chain.name}
+      <button className="btn warn" onClick={() => w.switchNetwork()} disabled={w.switching}>
+        {w.switching ? <><Spinner /> Switching…</> : <>Switch to {chain.name}</>}
       </button>
     );
   }
   return (
-    <button className="btn ghost" onClick={() => disconnect()} title="Disconnect">
-      {short(address)}
-    </button>
+    <div className="acct" ref={ref}>
+      <button className="btn ghost acct-btn" onClick={() => setOpen((o) => !o)} aria-expanded={open}>
+        <span className="dot ok" aria-hidden /> {short(address)}
+      </button>
+      {open && (
+        <div className="menu">
+          <span className="muted small">Connected to {chain.name}</span>
+          {explorerUrl && (
+            <a href={`${explorerUrl}/address/${address}`} target="_blank" rel="noreferrer">View on explorer ↗</a>
+          )}
+          <button onClick={() => navigator.clipboard?.writeText(address ?? "").then(() => setOpen(false))}>Copy address</button>
+          <button onClick={() => { disconnect(); setOpen(false); }}>Disconnect</button>
+        </div>
+      )}
+    </div>
   );
 }

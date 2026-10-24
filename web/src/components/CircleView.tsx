@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useAccount, useReadContract, useReadContracts } from "wagmi";
 import { erc20Abi, type Address } from "viem";
 import { ajoAbi } from "@/lib/abi";
@@ -7,6 +8,9 @@ import { ajoAddress, chain, explorerUrl, faucetUrl } from "@/lib/config";
 import { STATUS, duration, fmt, short } from "@/lib/format";
 import { useTx } from "@/lib/useTx";
 import { History } from "./History";
+import { InviteCard } from "./InviteCard";
+import { TxButton } from "./TxButton";
+import { useWallet } from "./Wallet";
 import { useYieldConfig } from "./MusdBanner";
 
 type Circle = {
@@ -55,7 +59,7 @@ export function CircleView({ id }: { id: bigint }) {
   const { address: me } = useAccount();
   const tx = useTx();
   const now = useNow();
-  const [copied, setCopied] = useState(false);
+  const wallet = useWallet();
 
   const { data: base, isLoading, error } = useReadContracts({
     contracts: [
@@ -73,15 +77,21 @@ export function CircleView({ id }: { id: bigint }) {
     contracts: [
       { address: circle?.token, abi: erc20Abi, functionName: "symbol" },
       { address: circle?.token, abi: erc20Abi, functionName: "decimals" },
-      { address: circle?.token, abi: erc20Abi, functionName: "allowance", args: [me!, ajoAddress as Address] },
-      { address: circle?.token, abi: erc20Abi, functionName: "balanceOf", args: [me!] },
     ],
-    query: { enabled: !!circle, refetchInterval: 10_000 },
+    query: { enabled: !!circle, staleTime: Infinity },
   });
   const symbol = (tokenMeta?.[0]?.result as string) ?? "";
   const decimals = (tokenMeta?.[1]?.result as number) ?? 18;
-  const allowance = tokenMeta?.[2]?.result as bigint | undefined;
-  const balance = tokenMeta?.[3]?.result as bigint | undefined;
+  // Wallet-specific reads only run when a wallet is connected; read-only visitors never need them.
+  const { data: mineMeta } = useReadContracts({
+    contracts: [
+      { address: circle?.token, abi: erc20Abi, functionName: "allowance", args: [me!, ajoAddress as Address] },
+      { address: circle?.token, abi: erc20Abi, functionName: "balanceOf", args: [me!] },
+    ],
+    query: { enabled: !!circle && !!me, refetchInterval: 10_000 },
+  });
+  const allowance = mineMeta?.[0]?.result as bigint | undefined;
+  const balance = mineMeta?.[1]?.result as bigint | undefined;
 
   const { data: memberData } = useReadContracts({
     contracts: members.map((m) => ({ ...ajo, functionName: "getMember" as const, args: [id, m] as const })),
@@ -124,8 +134,26 @@ export function CircleView({ id }: { id: bigint }) {
   const myYield = yieldData?.[1]?.result as bigint | undefined;
 
   if (!ajoAddress) return <div className="card error">NEXT_PUBLIC_AJO_ADDRESS is not set.</div>;
-  if (isLoading) return <div className="card muted">Loading circle…</div>;
-  if (error || !circle) return <div className="card error">Circle #{id.toString()} not found on {chain.name}.</div>;
+  if (isLoading)
+    return (
+      <div className="card skeleton-card" aria-busy="true">
+        <div className="skeleton w40" />
+        <div className="skeleton w25" />
+        <div className="stats">{Array.from({ length: 6 }, (_, i) => <div key={i} className="skeleton h48" />)}</div>
+        <p className="muted small">Loading circle #{id.toString()} from {chain.name}…</p>
+      </div>
+    );
+  const notFound = !error && circle && circle.creator === "0x0000000000000000000000000000000000000000";
+  if (error || !circle || notFound)
+    return (
+      <div className="card empty">
+        <h1>Circle #{id.toString()} not found</h1>
+        <p className="muted">
+          {error ? `We couldn't read it from ${chain.name}. Check your connection and refresh.` : `There's no circle with that number on ${chain.name} yet.`}
+        </p>
+        <Link className="btn" href="/">Back to home</Link>
+      </div>
+    );
 
   const mine = me ? infos.get(members.find((m) => m.toLowerCase() === me.toLowerCase()) ?? "") : undefined;
   const isMember = !!mine?.joined;
@@ -140,27 +168,24 @@ export function CircleView({ id }: { id: bigint }) {
   const amount = circle.contributionAmount;
   const potSize = amount * BigInt(circle.activeMembers);
 
-  const shareUrl = typeof window !== "undefined" ? window.location.href : "";
-  const copy = async () => {
-    await navigator.clipboard.writeText(shareUrl);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1500);
-  };
+  const seatsLeft = Math.max(0, circle.maxMembers - members.length);
+  const full = circle.status === 0 && seatsLeft === 0;
 
   const join = () =>
-    tx.run(async () => {
-      if (circle.requireCollateral) await tx.approveIfNeeded(circle.token, me!, amount, allowance);
+    tx.run("Join", async () => {
+      if (circle.requireCollateral) await tx.approveIfNeeded(circle.token, amount, allowance);
       return tx.send("Join", "join", [id]);
-    });
+    }, `You joined ${circle.name || `circle #${id}`}`);
   const contribute = () =>
-    tx.run(async () => {
-      await tx.approveIfNeeded(circle.token, me!, amount, allowance);
+    tx.run("Contribute", async () => {
+      await tx.approveIfNeeded(circle.token, amount, allowance);
       return tx.send("Contribute", "contribute", [id]);
-    });
+    }, `Paid ${fmt(amount, decimals)} ${symbol} for round ${circle.currentRound + 1}`);
   const simple = (label: string, fn: string, confirmText?: string) => () => {
     if (confirmText && !window.confirm(confirmText)) return;
-    tx.run(() => tx.send(label, fn, [id]));
+    tx.run(label, () => tx.send(label, fn, [id]));
   };
+  const lowBalance = balance !== undefined && balance < amount;
 
   return (
     <>
@@ -172,7 +197,6 @@ export function CircleView({ id }: { id: bigint }) {
               #{id.toString()} · created by {short(circle.creator)} · <span className={`pill s${circle.status}`}>{status}</span>
             </p>
           </div>
-          <button className="btn ghost" onClick={copy}>{copied ? "Link copied ✓" : "Copy invite link"}</button>
         </div>
         <div className="stats">
           <div><span>Contribution</span><strong>{fmt(amount, decimals)} {symbol}</strong></div>
@@ -223,61 +247,111 @@ export function CircleView({ id }: { id: bigint }) {
           </div>
         )}
 
+        {circle.status === 0 && (
+          full ? (
+            <div className="callout ok" role="status">
+              <strong>Circle full · {members.length}/{circle.maxMembers} members</strong>
+              <span className="muted small">
+                {isCreator ? "Everyone's in. Start the circle to fix the payout order and open round 1." : "All seats are taken. Waiting for the creator to start the circle."}
+              </span>
+            </div>
+          ) : (
+            <div className="callout" role="status">
+              <strong>{seatsLeft} of {circle.maxMembers} seat{circle.maxMembers === 1 ? "" : "s"} open</strong>
+              <span className="muted small">
+                Anyone with the link can join by signing one transaction{circle.requireCollateral ? ` and posting ${fmt(amount, decimals)} ${symbol} collateral` : ""}.
+              </span>
+            </div>
+          )
+        )}
+        {circle.status === 3 && <div className="callout bad"><strong>This circle was cancelled.</strong><span className="muted small">All collateral was refunded.</span></div>}
+        {circle.status === 2 && <div className="callout ok"><strong>Circle completed 🎉</strong><span className="muted small">Every member received the pot once. See the history below.</span></div>}
+
         <div className="actions">
-          {!me && <p className="muted">Connect a wallet to take part.</p>}
-          {me && circle.status === 0 && !isMember && members.length < circle.maxMembers && (
-            <button className="btn" disabled={tx.busy} onClick={join}>
+          {circle.status === 0 && !isMember && !full && (
+            <TxButton
+              id="Join" current={tx.action} busy={tx.busy} onRun={join}
+              busyText={tx.status.startsWith("Step 1") ? "Approving…" : "Joining…"}
+              needsWalletText="Connect wallet to join"
+              disabled={lowBalance && circle.requireCollateral}
+              disabledReason={`You need ${fmt(amount, decimals)} ${symbol} for collateral`}
+            >
               {circle.requireCollateral ? `Approve & join (${fmt(amount, decimals)} ${symbol} collateral)` : "Join circle"}
-            </button>
+            </TxButton>
           )}
           {me && circle.status === 0 && isMember && (
-            <button className="btn ghost" disabled={tx.busy} onClick={simple("Leave", "leave")}>Leave (refund)</button>
+            <TxButton id="Leave" variant="ghost" current={tx.action} busy={tx.busy} onRun={simple("Leave", "leave")} busyText="Leaving…">
+              Leave (refund)
+            </TxButton>
           )}
           {isCreator && circle.status === 0 && (
             <>
-              <button className="btn" disabled={tx.busy || members.length !== circle.maxMembers} onClick={simple("Start", "start")}>
-                {members.length === circle.maxMembers ? "Start circle" : `Start (needs ${circle.maxMembers - members.length} more)`}
-              </button>
-              <button className="btn ghost" disabled={tx.busy} onClick={simple("Cancel", "cancelCircle", "Cancel this circle and refund everyone?")}>Cancel</button>
+              <TxButton
+                id="Start" current={tx.action} busy={tx.busy} onRun={simple("Start", "start")} busyText="Starting…"
+                disabled={!full} disabledReason="Every seat must be filled first"
+              >
+                {full ? "Start circle" : `Start (needs ${seatsLeft} more)`}
+              </TxButton>
+              <TxButton id="Cancel" variant="ghost" current={tx.action} busy={tx.busy} onRun={simple("Cancel", "cancelCircle", "Cancel this circle and refund everyone?")} busyText="Cancelling…">
+                Cancel circle
+              </TxButton>
             </>
           )}
           {active && isMember && !mine?.exited && !iPaid && (
-            <button className="btn" disabled={tx.busy} onClick={contribute}>
+            <TxButton
+              id="Contribute" current={tx.action} busy={tx.busy} onRun={contribute}
+              busyText={tx.status.startsWith("Step 1") ? "Approving…" : "Paying…"}
+              disabled={lowBalance} disabledReason={`Your balance is below ${fmt(amount, decimals)} ${symbol}`}
+            >
               {allowance !== undefined && allowance >= amount ? "" : "Approve & "}Contribute {fmt(amount, decimals)} {symbol}
-            </button>
+            </TxButton>
           )}
           {active && iPaid && <span className="pill s2">You paid this round ✓</span>}
           {pastDeadline && (
-            <button className="btn warn" disabled={tx.busy} onClick={simple("Settle round", "settleRound")}>
+            <TxButton id="Settle round" variant="warn" current={tx.action} busy={tx.busy} onRun={simple("Settle round", "settleRound")} busyText="Settling…" needsWalletText="Connect wallet to settle">
               Settle round (slash missed payments)
-            </button>
+            </TxButton>
           )}
           {active && isMember && !mine?.exited && !mine?.receivedPayout && (
-            <button className="btn ghost" disabled={tx.busy} onClick={simple("Exit", "exitCircle", "Exiting forfeits your collateral and your payout turn. Continue?")}>
+            <TxButton id="Exit" variant="ghost" current={tx.action} busy={tx.busy} onRun={simple("Exit", "exitCircle", "Exiting forfeits your collateral and your payout turn. Continue?")} busyText="Exiting…">
               Exit early
-            </button>
+            </TxButton>
           )}
           {claimable !== undefined && claimable > 0n && (
-            <button className="btn" disabled={tx.busy} onClick={simple("Claim", "claimPayout")}>
+            <TxButton id="Claim" current={tx.action} busy={tx.busy} onRun={simple("Claim", "claimPayout")} busyText="Claiming…">
               Claim {fmt(claimable, decimals)} {symbol}
-            </button>
+            </TxButton>
           )}
         </div>
-        {me && balance !== undefined && (
+        {!me && wallet.hasWallet === false && (
           <p className="muted small">
-            Your balance: {fmt(balance, decimals)} {symbol}
-            {faucetUrl && <> · <a href={faucetUrl} target="_blank" rel="noreferrer">faucet ↗</a></>}
+            You&apos;re viewing this circle read-only. To join or pay you need a browser wallet.{" "}
+            <button className="linklike" onClick={wallet.showHelp}>How to get one</button>
           </p>
         )}
-        {tx.status && <p className="muted">{tx.status}</p>}
-        {tx.error && <p className="error">{tx.error}</p>}
+        {!me && wallet.hasWallet !== false && circle.status !== 0 && (
+          <p className="muted small">Read-only view. Connect a wallet if you&apos;re a member of this circle.</p>
+        )}
+        {me && balance !== undefined && (
+          <p className={`small ${lowBalance ? "error" : "muted"}`}>
+            Your balance: {fmt(balance, decimals)} {symbol}
+            {lowBalance && ` · you need at least ${fmt(amount, decimals)} ${symbol}`}
+            {faucetUrl && <> · <a href={faucetUrl} target="_blank" rel="noreferrer">BTC faucet ↗</a></>}
+          </p>
+        )}
+        {tx.status && <p className="muted small"><span className="spinner" aria-hidden /> {tx.status}</p>}
+        {tx.error && <p className="error small">{tx.error}</p>}
       </div>
+
+      {circle.status === 0 && (
+        <InviteCard id={id} name={circle.name} seatsLeft={seatsLeft} maxMembers={circle.maxMembers} contribution={`${fmt(amount, decimals)} ${symbol}`} />
+      )}
 
       <div className="grid2">
         <div className="card">
           <h2>Members</h2>
-          {members.length === 0 && <p className="muted">Nobody has joined yet. Share the invite link.</p>}
-          <table>
+          {members.length === 0 && <p className="muted">Nobody has joined yet. Share the invite link above.</p>}
+          <div className="table-wrap"><table>
             <thead><tr><th>Member</th><th>Collateral</th>{active && <th>Round {round + 1}</th>}<th></th></tr></thead>
             <tbody>
               {members.map((m) => {
@@ -299,7 +373,7 @@ export function CircleView({ id }: { id: bigint }) {
                 );
               })}
             </tbody>
-          </table>
+          </table></div>
         </div>
 
         <div className="card">
