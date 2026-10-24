@@ -41,3 +41,74 @@ Web env: NEXT_PUBLIC_CHAIN=mezoTestnet, NEXT_PUBLIC_AJO_ADDRESS=0x94A5014b54bF74
 | mezo-demo-3 | `0xd02a4AaA0E3E4465b87E854458985Bbd000609ba` | [0xb5d4de44…666a](https://explorer.test.mezo.org/tx/0xb5d4de445f6784ca572b01568ede083e5ed3d032e22976c1b27c142b79b4666a) | [0x91983d5b…0757](https://explorer.test.mezo.org/tx/0x91983d5b6a85b649349bdb4d56129f166f5b5e82aa3f9721407b0a0933c00757) |
 
 Balances after funding (Oct 24 2026 ~09:50 WAT): each demo wallet 500 MUSD + 0.002 BTC; deployer 300 MUSD + ~0.00672 BTC.
+
+## Demo circle "Yaba Market Ajo" (v2, circle id 1)
+Created Oct 24 2026 ~11:08 WAT on AjoCircle v2 `0x94A5014b54bF748660AC0D953De67416fe34ea2C`. Page: https://ajocircle.pages.dev/circle/?id=1
+- Params (DEMO_SCRIPT.md "Before you record"): token MUSD, contribution 10 MUSD (1e19), maxMembers 3, roundLength 600 s (10 min), requireCollateral true, randomOrder false (not in script; web form default, payout in join order so A/Ada is first recipient), name "Yaba Market Ajo" (stored on-chain).
+- Creator mezo-demo-1 (not auto-joined; joined separately). Each member approved exactly 10 MUSD and posted 10 MUSD collateral on join.
+- State after setup: circleCount=1, status Open (0), 3/3 members, activeMembers 3, pot 0, contract holds 30 MUSD collateral. NOT started — creator (demo-1) must call start(1).
+
+| Step | Wallet | Tx | Block |
+|---|---|---|---|
+| createCircle | mezo-demo-1 | [0x29d0b96a…90df](https://explorer.test.mezo.org/tx/0x29d0b96aef19b7dc01615f3f1e0e8e43a02db58b30fc2b11be88b811cb4e90df) | 16337397 |
+| approve 10 MUSD | mezo-demo-1 | [0x8a9bf442…84df](https://explorer.test.mezo.org/tx/0x8a9bf442ad15154c8afa603909267d11010b1e472bdaf31b4c6be9a90fdc84df) | 16337401 |
+| join(1) | mezo-demo-1 | [0xf5e42488…001e](https://explorer.test.mezo.org/tx/0xf5e42488e265cc42132c87fb37626ef5dc89370362059f48064ebd73399b001e) | 16337403 |
+| approve 10 MUSD | mezo-demo-2 | [0x98209f52…242b](https://explorer.test.mezo.org/tx/0x98209f526c551329efc656cfad01e61592f21644abdaae433fa1c0df3f25242b) | 16337404 |
+| join(1) | mezo-demo-2 | [0x0901ae8f…137c](https://explorer.test.mezo.org/tx/0x0901ae8fdcacc3624a41afa33228dc319e7d5d5789f3cc76258099a3cae7137c) | 16337405 |
+| approve 10 MUSD | mezo-demo-3 | [0xf9826ee9…bcd3](https://explorer.test.mezo.org/tx/0xf9826ee96a568513dfa0430eeda5bcbec6fbe1e229c4e0dc6028514cf1c5bcd3) | 16337406 |
+| join(1) | mezo-demo-3 | [0x5ac23587…77ad](https://explorer.test.mezo.org/tx/0x5ac235878ff7c01b8f50892b35438d1ec648dcbd6e8c3ef0206383fc503077ad) | 16337408 |
+
+Balances after (Oct 24 2026 11:09 WAT): each demo wallet 490 MUSD (allowance to AjoCircle 0); BTC demo-1 0.00199999990502, demo-2 0.00199999996089, demo-3 0.00199999996057.
+
+### Circle 1 update — demo-3 left (Oct 24 2026 11:11 WAT)
+- `leave(1)` by mezo-demo-3: [0xb3e1538f…beef](https://explorer.test.mezo.org/tx/0xb3e1538f7788180fc85762b317d29cb4751e0170657aa12529460baa5d17beef) (block 16337448). MemberLeft refunded 10 MUSD collateral; demo-3 balance back to 500 MUSD, allowance to AjoCircle 0.
+- Right after the leave: status Open (0), 2/3 members (demo-1, demo-2), activeMembers 2, NOT started (start(1) intentionally not called — the start happens on camera from the app as demo-1).
+- Note: at 11:16 WAT a third wallet `0xED42844Cd35d734fec3B65dF486158C443896b41` (funded from the deployer at block 16337484 with 50 MUSD + 0.002 BTC, not by this run) joined circle 1 ([0xec272655…7df8](https://explorer.test.mezo.org/tx/0xec272655f9d2c442e3479ca726d8228945c87f8426dbe48168271ae9510d7df8), block 16337511). Circle 1 is therefore again 3/3, still Open, contract holds 30 MUSD collateral for it.
+
+## Completed demo circle "Surulere Traders Ajo" (v2, circle id 2)
+Run Oct 24 2026 11:12–11:16 WAT on AjoCircle v2 `0x94A5014b54bF748660AC0D953De67416fe34ea2C`. Page: https://ajocircle.pages.dev/circle/?id=2
+- Params: token MUSD, contribution 10 MUSD (1e19), maxMembers 3, roundLength 60 s (= contract MIN_ROUND_LENGTH), requireCollateral true, randomOrder false, creator mezo-demo-1.
+- Payout order (join order): round 0 → demo-1, round 1 → demo-2, round 2 → demo-3.
+- Round 0: all 3 paid → 30 MUSD pushed to demo-1 (PayoutSent).
+- Round 1: demo-1 and demo-2 paid; demo-3 deliberately missed the deadline. After the deadline demo-1 called `settleRound(2)`: demo-3's 10 MUSD collateral was slashed into the pot (CollateralSlashed + MemberDefaulted), and 30 MUSD was credited to demo-2 (PayoutCredited, claimed later). The contract has no late-payment path: `contribute` only pays the current round, so demo-3 could not pay round 1 late.
+- Round 2: all 3 paid → 30 MUSD pushed to demo-3 → CircleCompleted; collateral returned (claimable) to demo-1 (10) and demo-2 (10); demo-3 had 0 left.
+- Claims: demo-1 claimed 10 MUSD (collateral); demo-2 claimed 40 MUSD (30 round-1 payout + 10 collateral).
+
+| # | Step | Wallet | Tx | Block |
+|---|---|---|---|---|
+| 1 | createCircle | mezo-demo-1 | [0xfff4005f…7273](https://explorer.test.mezo.org/tx/0xfff4005f1890b948a8ad3cd9fea155c8bc4f45961c6c11ee9dbeea0588fe7273) | 16337455 |
+| 2 | approve 10 MUSD (collateral) | mezo-demo-1 | [0x31e6b1c6…629c](https://explorer.test.mezo.org/tx/0x31e6b1c639412f081a8a65ee19309f24d620aa2b8e2c8c3452023a893850629c) | 16337456 |
+| 3 | join(2) | mezo-demo-1 | [0xfe1e00b7…d5a2](https://explorer.test.mezo.org/tx/0xfe1e00b73f5349462c83c6779601d335974c2982483dd7c5c05c13d9d4e6d5a2) | 16337464 |
+| 4 | approve 10 MUSD (collateral) | mezo-demo-2 | [0xb63fdc96…5f32](https://explorer.test.mezo.org/tx/0xb63fdc96602955b6e39698ad225030858035de2b807f2da2166a34ff5fd55f32) | 16337465 |
+| 5 | join(2) | mezo-demo-2 | [0xa279e5e8…fc87](https://explorer.test.mezo.org/tx/0xa279e5e858e423961a7de7473692b9517b2de7c13aa46b8b8d055c13237dfc87) | 16337466 |
+| 6 | approve 10 MUSD (collateral) | mezo-demo-3 | [0x9cac901b…25e2](https://explorer.test.mezo.org/tx/0x9cac901bebab6593e6b6082ca9adaa08f99e3dcff573fb4d7f72d8b73f1e25e2) | 16337467 |
+| 7 | join(2) | mezo-demo-3 | [0x3149648c…41ab](https://explorer.test.mezo.org/tx/0x3149648c98fccf06c03121827e99d994e59cac4da4f05b2960732115903841ab) | 16337468 |
+| 8 | start(2) | mezo-demo-1 | [0x66f63e3f…0bb1](https://explorer.test.mezo.org/tx/0x66f63e3f03d5c006251d090721a8d1fe7d3818518520145d02e1172da8fb0bb1) | 16337469 |
+| 9 | approve 10 MUSD (r0) | mezo-demo-1 | [0x652f66e6…7a11](https://explorer.test.mezo.org/tx/0x652f66e63121fa441e6ed67b78469757248da02caa63f448b6f8314f9d0e7a11) | 16337470 |
+| 10 | contribute(2) r0 | mezo-demo-1 | [0xf4f6f60d…34a2](https://explorer.test.mezo.org/tx/0xf4f6f60d135bf3a2aec77048fcd251c573d11334c644159c41bf32c3f81c34a2) | 16337471 |
+| 11 | approve 10 MUSD (r0) | mezo-demo-2 | [0x805ac4a2…ec6d](https://explorer.test.mezo.org/tx/0x805ac4a21f0486f4858246e59dbd8703ed803bb6bb08d73d3430cab2c396ec6d) | 16337472 |
+| 12 | contribute(2) r0 | mezo-demo-2 | [0x57a50cec…d40f](https://explorer.test.mezo.org/tx/0x57a50cec5f4fe9fd4c85deaab301d10d503fec3fe6ba7a01fd0eb24bfbe8d40f) | 16337473 |
+| 13 | approve 10 MUSD (r0) | mezo-demo-3 | [0x66525053…6d45](https://explorer.test.mezo.org/tx/0x66525053ee5ed3013f4d44cf458c23d735938c7404ebc9ce71defc6d93af6d45) | 16337481 |
+| 14 | contribute(2) r0 | mezo-demo-3 | [0x7f9373d6…ab28](https://explorer.test.mezo.org/tx/0x7f9373d623530032d85187812f0bd0e20c3f0b23d3b326f7074a4ca73eafab28) | 16337482 |
+| 15 | approve 10 MUSD (r1) | mezo-demo-1 | [0xd7de305d…3e0d](https://explorer.test.mezo.org/tx/0xd7de305dd2b17d85e61e33695c43849b8dcab181dd5bbb0eedb824ce04323e0d) | 16337484 |
+| 16 | contribute(2) r1 | mezo-demo-1 | [0xf8c9edf4…04c6](https://explorer.test.mezo.org/tx/0xf8c9edf4a2cefe4e6e2fe2248391b0797590b19d3afc7d21c2a188cf8d5e04c6) | 16337485 |
+| 17 | approve 10 MUSD (r1) | mezo-demo-2 | [0xeb3725a0…f07b](https://explorer.test.mezo.org/tx/0xeb3725a09d281af5fb021b795be3523f4aa3c575b33d5d790b139f4a6969f07b) | 16337486 |
+| 18 | contribute(2) r1 | mezo-demo-2 | [0x91e72d9b…4dc8](https://explorer.test.mezo.org/tx/0x91e72d9b38c9221982ffa7220fbc825b0f4779002774f7b6a87f414811c64dc8) | 16337487 |
+| 19 | settleRound(2) r1 (demo-3 slashed) | mezo-demo-1 | [0x3eb90cfa…69cd](https://explorer.test.mezo.org/tx/0x3eb90cfa8795149803f9e72547d7ec1e58543423efc1b122fd436f05676669cd) | 16337501 |
+| 20 | approve 10 MUSD (r2) | mezo-demo-1 | [0x5bb8e349…da3f](https://explorer.test.mezo.org/tx/0x5bb8e3490fa8096cd7a974d6e56c5f2faa08f7b56fbe221371f67c36a581da3f) | 16337502 |
+| 21 | contribute(2) r2 | mezo-demo-1 | [0x7f0dbee6…a220](https://explorer.test.mezo.org/tx/0x7f0dbee6d96bf1072722ae1fb9ffac08f6d473c323049943a05afeec2b0da220) | 16337503 |
+| 22 | approve 10 MUSD (r2) | mezo-demo-2 | [0x29784c80…bdf7](https://explorer.test.mezo.org/tx/0x29784c8016677edb8f3abe03b4522864fcff0a35df68993c6f44950c6cbbbdf7) | 16337504 |
+| 23 | contribute(2) r2 | mezo-demo-2 | [0x7c412ac7…9377](https://explorer.test.mezo.org/tx/0x7c412ac7b0457fbe105850d578369e0fbcb6ad3964578784e13aa446f0d89377) | 16337505 |
+| 24 | approve 10 MUSD (r2) | mezo-demo-3 | [0xb2222ea1…b5f9](https://explorer.test.mezo.org/tx/0xb2222ea11cdab741f088cc01a05e8f08b75339263d30c8db482eec89007cb5f9) | 16337506 |
+| 25 | contribute(2) r2 | mezo-demo-3 | [0xaedf92d5…9d83](https://explorer.test.mezo.org/tx/0xaedf92d57e085f024cbb5122575692992ce1e408e10a6b5954171ca2dc5e9d83) | 16337507 |
+| 26 | claimPayout(2) | mezo-demo-1 | [0x82fa8612…3143](https://explorer.test.mezo.org/tx/0x82fa8612346c1ddb57c25fdda0dab5f6de17beb05c1074a00236373dcd403143) | 16337509 |
+| 27 | claimPayout(2) | mezo-demo-2 | [0x53ed02b1…c233](https://explorer.test.mezo.org/tx/0x53ed02b10fcadf5828bdec5382e506949d436fe07560397c9e59b5087fcac233) | 16337510 |
+
+Final on-chain state (circle 2): status Completed (2), currentRound 2, roundDeadline 0, pot 0, claimable 0 for all members.
+| Member | Payout received | Collateral | defaulted / missedPayments | Net MUSD |
+|---|---|---|---|---|
+| demo-1 | 30 (round 0, pushed) | 10 returned | no / 0 | 0 |
+| demo-2 | 30 (round 1, credited then claimed) | 10 returned | no / 0 | 0 |
+| demo-3 | 30 (round 2, pushed) | 10 slashed in round 1 | yes / 1 | 0 (paid 20 + 10 slashed, got 30) |
+
+Balances after (Oct 24 2026 11:16 WAT): demo-1 490 MUSD / 0.001999999666 BTC; demo-2 490 MUSD / 0.001999999837 BTC; demo-3 500 MUSD / 0.001999999835 BTC; all allowances to AjoCircle 0. Deployer 250 MUSD / ~0.0047183 BTC (down 50 MUSD + 0.002 BTC from the transfer to 0xED42…6b41 above).
