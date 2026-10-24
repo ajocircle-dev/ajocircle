@@ -9,6 +9,8 @@ export const mezoTestnet = defineChain({
   nativeCurrency: { name: "Bitcoin", symbol: "BTC", decimals: 18 },
   rpcUrls: { default: { http: ["https://rpc.test.mezo.org"], webSocket: ["wss://rpc-ws.test.mezo.org"] } },
   blockExplorers: { default: { name: "Mezo Explorer", url: "https://explorer.test.mezo.org" } },
+  // Multicall3 is deployed at the canonical address on Mezo testnet (checked with eth_getCode 2026-10-24).
+  contracts: { multicall3: { address: "0xcA11bde05977b3631167028862bE2a173976CA11" } },
   testnet: true,
 });
 
