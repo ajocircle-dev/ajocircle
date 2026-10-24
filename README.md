@@ -197,10 +197,18 @@ After changing the contract, regenerate the ABI with `forge build` and then `npm
 
 | Network | AjoCircle | Deploy block | Explorer | Live app |
 | --- | --- | --- | --- | --- |
-| Mezo testnet (31611), no adapter | `TBD` | `TBD` | https://explorer.test.mezo.org/address/TBD | `TBD` |
+| Mezo testnet (31611), no adapter | `0x94A5014b54bF748660AC0D953De67416fe34ea2C` | `16336238` | [explorer](https://explorer.test.mezo.org/address/0x94A5014b54bF748660AC0D953De67416fe34ea2C) · [Sourcify](https://repo.sourcify.dev/31611/0x94A5014b54bF748660AC0D953De67416fe34ea2C) | `TBD` |
 | Arc mainnet (5042) | `TBD` | `TBD` | https://explorer.arc.io/address/TBD | `TBD` |
 
-Example transactions (contribution and payout): `TBD`
+Mezo testnet deploy tx: [0xdef687…5a06](https://explorer.test.mezo.org/tx/0xdef687fbcbb0fdc8c46378e5249d5f88a034a88548300e2b8f15bcb317ce5a06). Full record and demo-wallet transactions: [`deployments/mezo-testnet.md`](deployments/mezo-testnet.md).
+
+Pitch deck: [`docs/AjoCircle-Mezo-deck.pdf`](docs/AjoCircle-Mezo-deck.pdf)
+
+## Team
+
+Solo build by **bosso**, solo builder (Solidity / TS / Next.js).
+- X: [@bossonormal1](https://x.com/bossonormal1)
+- LinkedIn: [ibukun-o-a9453a232](https://www.linkedin.com/in/ibukun-o-a9453a232)
 
 ## License
 MIT
