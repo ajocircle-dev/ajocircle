@@ -7,7 +7,7 @@ import { ajoAddress } from "@/lib/config";
 import { STATUS, duration } from "@/lib/format";
 
 export function CircleList() {
-  const { data: count } = useReadContract({
+  const { data: count, isLoading } = useReadContract({
     address: ajoAddress as Address,
     abi: ajoAbi,
     functionName: "circleCount",
@@ -28,7 +28,8 @@ export function CircleList() {
   return (
     <div className="card">
       <h2>Recent circles</h2>
-      {n === 0 && <p className="muted">No circles yet. Start the first one.</p>}
+      {isLoading && <p className="muted">Loading circles from chain…</p>}
+      {!isLoading && n === 0 && <p className="muted">No circles yet. Start the first one.</p>}
       <ul className="list">
         {ids.map((id, i) => {
           const c = data?.[i]?.result as
