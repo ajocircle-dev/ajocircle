@@ -52,7 +52,7 @@ export function CreateCircle() {
       try {
         const ev = decodeEventLog({ abi: ajoAbi, data: log.data, topics: log.topics });
         if (ev.eventName === "CircleCreated") {
-          router.push(`/circle/${(ev.args as { circleId: bigint }).circleId.toString()}`);
+          router.push(`/circle/?id=${(ev.args as { circleId: bigint }).circleId.toString()}`);
           return;
         }
       } catch {}

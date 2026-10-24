@@ -36,7 +36,7 @@ export function CircleList() {
             | undefined;
           return (
             <li key={id.toString()}>
-              <Link href={`/circle/${id}`}>
+              <Link href={`/circle/?id=${id}`}>
                 <strong>#{id.toString()} {c?.name ?? "…"}</strong>
                 {c && (
                   <span className="muted">

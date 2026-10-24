@@ -122,7 +122,7 @@ ajocircle/
     ├── src/lib/chains.ts      Mezo testnet / Mezo / Arc / Arc testnet / anvil definitions
     ├── src/lib/config.ts      chain picked by NEXT_PUBLIC_CHAIN, injected-wallet wagmi config
     ├── src/components/        CreateCircle, CircleList, CircleView (+ yield panel), MusdBanner, History, Connect
-    └── src/app/circle/[id]    the shareable circle page
+    └── src/app/circle          the shareable circle page (/circle/?id=N, static-export friendly)
 ```
 
 - One contract hosts any number of circles (`circleId` 1, 2, …), and each circle has its own ERC-20 token.

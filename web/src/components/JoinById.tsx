@@ -10,7 +10,7 @@ export function JoinById() {
       className="card"
       onSubmit={(e) => {
         e.preventDefault();
-        if (/^\d+$/.test(id)) router.push(`/circle/${id}`);
+        if (/^\d+$/.test(id)) router.push(`/circle/?id=${id}`);
       }}
     >
       <h2>Got an invite?</h2>
