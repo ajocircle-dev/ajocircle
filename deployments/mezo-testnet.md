@@ -1,4 +1,4 @@
-# AjoCircle — Mezo TESTNET deployments
+# AjoCircle: Mezo TESTNET deployments
 
 Network: Mezo testnet, chain ID 31611, RPC https://rpc.test.mezo.org, explorer https://explorer.test.mezo.org
 TESTNET ONLY. No secrets in this file. Keystores live in ~/.foundry/keystores, passwords in /home/box/.secrets (600).
@@ -6,11 +6,11 @@ TESTNET ONLY. No secrets in this file. Keystores live in ~/.foundry/keystores, p
 Token: MUSD (testnet) `0x118917a40FAF1CD7a13dB0Ef56C86De7973Ac503` (18 decimals)
 Deployer: `0x7E084Cb20EBe4a3ca1353EF24c96D048AAB50146` (keystore `mezo-testnet-deployer`)
 
-## AjoCircle v2 (current — use this for the web app)
+## AjoCircle v2 (current, use this for the web app)
 - Commit: `31dcaf9a725b2cfd27bbd30079afdf463653bcea` (main, 32 tests pass / 1 skipped)
 - Constructor: yield adapter = `0x0000000000000000000000000000000000000000` (no yield; YIELD_ADAPTER/SMUSD_VAULT/DEPLOY_MOCK_ADAPTER unset)
-- Address: `0x94A5014b54bF748660AC0D953De67416fe34ea2C` — https://explorer.test.mezo.org/address/0x94A5014b54bF748660AC0D953De67416fe34ea2C
-- Deploy tx: `0xdef687fbcbb0fdc8c46378e5249d5f88a034a88548300e2b8f15bcb317ce5a06` — https://explorer.test.mezo.org/tx/0xdef687fbcbb0fdc8c46378e5249d5f88a034a88548300e2b8f15bcb317ce5a06
+- Address: `0x94A5014b54bF748660AC0D953De67416fe34ea2C`: https://explorer.test.mezo.org/address/0x94A5014b54bF748660AC0D953De67416fe34ea2C
+- Deploy tx: `0xdef687fbcbb0fdc8c46378e5249d5f88a034a88548300e2b8f15bcb317ce5a06`: https://explorer.test.mezo.org/tx/0xdef687fbcbb0fdc8c46378e5249d5f88a034a88548300e2b8f15bcb317ce5a06
 - Deploy block: 16336238
 - Broadcast: deployments/mezo-testnet-v2.json
 - Verification: Sourcify exact_match (https://repo.sourcify.dev/31611/0x94A5014b54bF748660AC0D953De67416fe34ea2C). Blockscout submission queued ("Pending in queue"); explorer verifier has verified 0 contracts in 24h (last Oct 21).
@@ -21,14 +21,14 @@ Web env: NEXT_PUBLIC_CHAIN=mezoTestnet, NEXT_PUBLIC_AJO_ADDRESS=0x94A5014b54bF74
 
 ## AjoCircle v1 (safety net)
 - Commit: `788b7bb` (19 tests), built from a clean `git archive` copy at /workspace/ajocircle-v1
-- Address: `0xB6Ba9770baE20B19A815dB6Ea4cf4b5d5e248d3e` — https://explorer.test.mezo.org/address/0xB6Ba9770baE20B19A815dB6Ea4cf4b5d5e248d3e
-- Deploy tx: `0x3bd1212c523dfebfeeabeaf12c69362cc4048d49d76f3147a24aa74236ff2d3a` — https://explorer.test.mezo.org/tx/0x3bd1212c523dfebfeeabeaf12c69362cc4048d49d76f3147a24aa74236ff2d3a
+- Address: `0xB6Ba9770baE20B19A815dB6Ea4cf4b5d5e248d3e`: https://explorer.test.mezo.org/address/0xB6Ba9770baE20B19A815dB6Ea4cf4b5d5e248d3e
+- Deploy tx: `0x3bd1212c523dfebfeeabeaf12c69362cc4048d49d76f3147a24aa74236ff2d3a`: https://explorer.test.mezo.org/tx/0x3bd1212c523dfebfeeabeaf12c69362cc4048d49d76f3147a24aa74236ff2d3a
 - Deploy block: 16336174
 - Broadcast: deployments/mezo-testnet-v1.json
 - Verification: Sourcify exact_match; Blockscout queued (same as above). Web ABI for v1 is the one at commit 788b7bb.
 
 ## MUSD trove (deployer)
-- openTrove tx: `0x154dde4c758ddb58c77ad6a98179948c6c2b41f7b5b8cffd7b05078c453d6832` — https://explorer.test.mezo.org/tx/0x154dde4c758ddb58c77ad6a98179948c6c2b41f7b5b8cffd7b05078c453d6832 (block 16336206)
+- openTrove tx: `0x154dde4c758ddb58c77ad6a98179948c6c2b41f7b5b8cffd7b05078c453d6832`: https://explorer.test.mezo.org/tx/0x154dde4c758ddb58c77ad6a98179948c6c2b41f7b5b8cffd7b05078c453d6832 (block 16336206)
 - Borrowed 1,800 MUSD; total debt 2,001.8 MUSD (1,800 + 1.8 borrowing fee at 0.1% + 200 gas compensation)
 - Collateral: 0.037281711648613505 BTC; ICR ≈ 150% (1.4998 at open, price 80,530.49)
 - Status: active (1)
@@ -46,7 +46,7 @@ Balances after funding (Oct 24 2026 ~09:50 WAT): each demo wallet 500 MUSD + 0.0
 Created Oct 24 2026 ~11:08 WAT on AjoCircle v2 `0x94A5014b54bF748660AC0D953De67416fe34ea2C`. Page: https://ajocircle.pages.dev/circle/?id=1
 - Params (DEMO_SCRIPT.md "Before you record"): token MUSD, contribution 10 MUSD (1e19), maxMembers 3, roundLength 600 s (10 min), requireCollateral true, randomOrder false (not in script; web form default, payout in join order so A/Ada is first recipient), name "Yaba Market Ajo" (stored on-chain).
 - Creator mezo-demo-1 (not auto-joined; joined separately). Each member approved exactly 10 MUSD and posted 10 MUSD collateral on join.
-- State after setup: circleCount=1, status Open (0), 3/3 members, activeMembers 3, pot 0, contract holds 30 MUSD collateral. NOT started — creator (demo-1) must call start(1).
+- State after setup: circleCount=1, status Open (0), 3/3 members, activeMembers 3, pot 0, contract holds 30 MUSD collateral. NOT started: creator (demo-1) must call start(1).
 
 | Step | Wallet | Tx | Block |
 |---|---|---|---|
@@ -60,9 +60,9 @@ Created Oct 24 2026 ~11:08 WAT on AjoCircle v2 `0x94A5014b54bF748660AC0D953De674
 
 Balances after (Oct 24 2026 11:09 WAT): each demo wallet 490 MUSD (allowance to AjoCircle 0); BTC demo-1 0.00199999990502, demo-2 0.00199999996089, demo-3 0.00199999996057.
 
-### Circle 1 update — demo-3 left (Oct 24 2026 11:11 WAT)
+### Circle 1 update: demo-3 left (Oct 24 2026 11:11 WAT)
 - `leave(1)` by mezo-demo-3: [0xb3e1538f…beef](https://explorer.test.mezo.org/tx/0xb3e1538f7788180fc85762b317d29cb4751e0170657aa12529460baa5d17beef) (block 16337448). MemberLeft refunded 10 MUSD collateral; demo-3 balance back to 500 MUSD, allowance to AjoCircle 0.
-- Right after the leave: status Open (0), 2/3 members (demo-1, demo-2), activeMembers 2, NOT started (start(1) intentionally not called — the start happens on camera from the app as demo-1).
+- Right after the leave: status Open (0), 2/3 members (demo-1, demo-2), activeMembers 2, NOT started (start(1) intentionally not called; the start happens on camera from the app as demo-1).
 - Note: at 11:16 WAT a third wallet `0xED42844Cd35d734fec3B65dF486158C443896b41` (funded from the deployer at block 16337484 with 50 MUSD + 0.002 BTC, not by this run) joined circle 1 ([0xec272655…7df8](https://explorer.test.mezo.org/tx/0xec272655f9d2c442e3479ca726d8228945c87f8426dbe48168271ae9510d7df8), block 16337511). Circle 1 is therefore again 3/3, still Open, contract holds 30 MUSD collateral for it.
 
 ## Completed demo circle "Surulere Traders Ajo" (v2, circle id 2)
@@ -116,7 +116,7 @@ Balances after (Oct 24 2026 11:16 WAT): demo-1 490 MUSD / 0.001999999666 BTC; de
 ## Dashboard demo circles (v2, circle ids 3–5)
 Seeded Oct 24 2026 11:21–11:24 WAT on AjoCircle v2 `0x94A5014b54bF748660AC0D953De67416fe34ea2C` so the dashboard shows circles in varied states. Every tx was simulated (`cast call`) before sending; each approve was for the exact amount. All txs status 1. Circles 1 and 2 were not touched. circleCount after seeding = 5.
 
-### "Ikeja Tech Ajo" (circle id 3) — Active, mid-way
+### "Ikeja Tech Ajo" (circle id 3): Active, mid-way
 Page: https://ajocircle.pages.dev/circle/?id=3
 - Params: token MUSD, contribution 15 MUSD (1.5e19), maxMembers 3, roundLength 86400 s (1 day), randomOrder false, requireCollateral true, creator mezo-demo-2.
 - Members / payout order (join order): round 0 → `0x6c3c…8915` (demo-2), round 1 → `0x7E08…0146` (deployer), round 2 → `0xd02a…09ba` (demo-3).
@@ -145,7 +145,7 @@ Page: https://ajocircle.pages.dev/circle/?id=3
 | 17 | approve 15 MUSD (r1) | mezo-testnet-deployer | [0xa61ea3cd…3153](https://explorer.test.mezo.org/tx/0xa61ea3cd01eb8c7a2b75da7dcfb75af1718ee05057124506c734c1d170473153) | 16337610 |
 | 18 | contribute(3) r1 | mezo-testnet-deployer | [0xf88b92c2…0dc4](https://explorer.test.mezo.org/tx/0xf88b92c2322cccf863bd99c59f7fe6b2813ba76fb2e863e7171fbc0d527a0dc4) | 16337612 |
 
-### "Lekki Mums Esusu" (circle id 4) — Open, 2 of 4 seats
+### "Lekki Mums Esusu" (circle id 4): Open, 2 of 4 seats
 Page: https://ajocircle.pages.dev/circle/?id=4
 - Params: token MUSD, contribution 20 MUSD (2e19), maxMembers 4, roundLength 86400 s, randomOrder false, requireCollateral true, creator mezo-demo-3.
 - Members: `0xd02a…09ba` (demo-3) (creator), `0x010F…B5B8` (demo-1). Each posted 20 MUSD collateral.
@@ -159,7 +159,7 @@ Page: https://ajocircle.pages.dev/circle/?id=4
 | 4 | approve 20 MUSD (collateral) | mezo-demo-1 | [0x24921dc7…b913](https://explorer.test.mezo.org/tx/0x24921dc780d066004ef0a15efe0b4885d7ad7224202fa0da92b155c0114ab913) | 16337616 |
 | 5 | join(4) | mezo-demo-1 | [0x12826acc…b612](https://explorer.test.mezo.org/tx/0x12826acc52a65ff387e78640e863f0e8f9fc76e0d477cb3d3bd544a71c13b612) | 16337617 |
 
-### "Kano Traders Circle" (circle id 5) — Active, first round, random order
+### "Kano Traders Circle" (circle id 5): Active, first round, random order
 Page: https://ajocircle.pages.dev/circle/?id=5
 - Params: token MUSD, contribution 10 MUSD (1e19), maxMembers 3, roundLength 86400 s, randomOrder TRUE, requireCollateral true, creator mezo-demo-1.
 - Join order: demo-1, demo-2, deployer. Random order needs nothing extra: `start()` shuffles in the same tx (Fisher–Yates seeded with prevrandao + previous blockhash + circleId + timestamp; not secure randomness, fine for a demo).
