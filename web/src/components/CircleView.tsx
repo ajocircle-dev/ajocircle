@@ -363,7 +363,7 @@ export function CircleView({ id }: { id: bigint }) {
                       {m.toLowerCase() === me?.toLowerCase() && <span className="muted"> (you)</span>}
                     </td>
                     <td>{info ? `${fmt(info.collateral, decimals)}` : "…"}</td>
-                    {active && <td>{info?.exited ? "—" : paidInRound(round, m) ? "✅ paid" : "⏳ pending"}</td>}
+                    {active && <td>{info?.exited ? "n/a" : paidInRound(round, m) ? "✅ paid" : "⏳ pending"}</td>}
                     <td>
                       {info?.defaulted && <span className="pill bad">defaulter ×{info.missedPayments}</span>}
                       {info?.exited && <span className="pill">exited</span>}
@@ -392,7 +392,7 @@ export function CircleView({ id }: { id: bigint }) {
                     <tr key={i} className={current ? "current" : ""}>
                       <td>{i + 1}</td>
                       <td>{short(r)}{r.toLowerCase() === me?.toLowerCase() && <span className="muted"> (you)</span>}</td>
-                      <td>{i < roundsSoFar ? `${paidCount}/${circle.activeMembers}` : "—"}</td>
+                      <td>{i < roundsSoFar ? `${paidCount}/${circle.activeMembers}` : "n/a"}</td>
                       <td>{done ? "Paid out" : current ? "In progress" : "Upcoming"}</td>
                     </tr>
                   );

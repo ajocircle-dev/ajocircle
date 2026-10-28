@@ -297,12 +297,12 @@ function AllCircles({ rows, loading, now }: { rows?: Row[]; loading: boolean; no
                     <td data-label="Round">{r.c.status === 0 ? `–/${r.c.maxMembers}` : `${roundOf(r)}/${r.c.maxMembers}`}</td>
                     <td data-label="Pot / round">{fmt(potSize(r), 18)} {s}</td>
                     <td data-label="Next recipient" className="mono">
-                      {rec && rec !== ZERO ? (explorerUrl ? <a href={`${explorerUrl}/address/${rec}`} target="_blank" rel="noreferrer">{short(rec)}</a> : short(rec)) : <span className="muted">—</span>}
+                      {rec && rec !== ZERO ? (explorerUrl ? <a href={`${explorerUrl}/address/${rec}`} target="_blank" rel="noreferrer">{short(rec)}</a> : short(rec)) : <span className="muted">n/a</span>}
                     </td>
                     <td data-label="Next deadline">
                       {r.c.status === 1 ? (
                         <Deadline dl={dl} now={now} />
-                      ) : <span className="muted">{r.c.status === 0 ? "Not started" : "—"}</span>}
+                      ) : <span className="muted">{r.c.status === 0 ? "Not started" : "n/a"}</span>}
                     </td>
                     <td data-label="Status"><StatusCell r={r} /></td>
                     <td className="go"><Link className="btn ghost small-btn" href={`/circle/?id=${r.id}`}>View →</Link></td>
@@ -395,7 +395,7 @@ function MyCircles({ rows, loading, now }: { rows?: Row[]; loading: boolean; now
               const slashed = r.slashedBy[k];
               const returned = r.returnedTo[k];
               let col: { t: string; cls: string };
-              if (!isMember) col = { t: "—", cls: "muted" };
+              if (!isMember) col = { t: "n/a", cls: "muted" };
               else if (!r.c.requireCollateral) col = { t: "None required", cls: "muted" };
               else if (slashed && info && info.collateral > 0n) col = { t: `Partly slashed (−${fmt(slashed, 18)}) · ${fmt(info.collateral, 18)} locked`, cls: "error" };
               else if (slashed) col = { t: `Slashed (−${fmt(slashed, 18)} ${s})`, cls: "error" };
@@ -411,16 +411,16 @@ function MyCircles({ rows, loading, now }: { rows?: Row[]; loading: boolean; now
                   <td data-label="My role">{role}</td>
                   <td data-label="Status"><StatusCell r={r} /></td>
                   <td data-label="Paid this round">
-                    {paid === "yes" ? <span className="pill s2">Yes ✓</span> : paid === "no" ? <span className="pill warnpill">No, due</span> : <span className="muted">—</span>}
+                    {paid === "yes" ? <span className="pill s2">Yes ✓</span> : paid === "no" ? <span className="pill warnpill">No, due</span> : <span className="muted">n/a</span>}
                   </td>
                   <td data-label="My payout round">
                     {!isMember ? <span className="muted">Not a member</span> :
                       r.c.status === 0 ? <span className="muted">Set at start</span> :
-                      pos < 0 ? <span className="muted">—</span> :
+                      pos < 0 ? <span className="muted">n/a</span> :
                       <>Round {pos + 1} of {r.c.maxMembers}{info?.receivedPayout ? <span className="pill s2 ml">received</span> : r.c.status === 1 && pos === r.c.currentRound ? <span className="pill orangepill ml">this round</span> : null}</>}
                   </td>
                   <td data-label="Collateral" className={col.cls}>{col.t}</td>
-                  <td data-label="Next deadline">{r.c.status === 1 ? <Deadline dl={dl} now={now} /> : <span className="muted">—</span>}</td>
+                  <td data-label="Next deadline">{r.c.status === 1 ? <Deadline dl={dl} now={now} /> : <span className="muted">n/a</span>}</td>
                   <td className="go"><Link className="btn ghost small-btn" href={`/circle/?id=${r.id}`}>Open →</Link></td>
                 </tr>
               );

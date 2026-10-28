@@ -21,7 +21,7 @@ import {MUSDSavingsRateAdapter} from "../src/yield/MUSDSavingsRateAdapter.sol";
 ///   DEMO_ROUND_LENGTH   seconds (default 600)
 ///   DEMO_COLLATERAL     "true" to require collateral (default true)
 ///
-/// Yield (optional; default = none, i.e. plain MUSD / USDC rails — required for Arc and for Mezo TESTNET,
+/// Yield (optional; default = none, i.e. plain MUSD / USDC rails, required for Arc and for Mezo TESTNET,
 /// where no principal-safe MUSD yield source exists, see README "MUSD yield"):
 ///   YIELD_ADAPTER       address of an already-deployed, UNBOUND IYieldAdapter (AjoCircle binds it in its constructor)
 ///   SMUSD_VAULT         Mezo MAINNET MUSD Savings Rate vault (0xb4D498029af77680cD1eF828b967f010d06C51CC):
