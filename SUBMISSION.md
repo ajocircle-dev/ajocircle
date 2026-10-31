@@ -27,8 +27,12 @@ Mezo's MUSD Savings Vault. It's the same savings habit, without the treasurer yo
 4. **MUSD use:** MUSD is the unit of account for every contribution, pot and collateral. Through an `IYieldAdapter`,
    collateral (never the pot) can be routed into the **MUSD Savings Vault (sMUSD)**, which has no lock-up. The yield is
    shared back to members pro rata at close. The sMUSD vault is live on Mezo testnet
-   (`0x6f461c68B2c5492C0F5CCEc5a264d692aA7A8e16`) and mainnet. Wave 1 shipped without the adapter wired; Wave 2
-   wires it on testnet. The adapter is fork-tested against the real testnet vault.
+   (`0x6f461c68B2c5492C0F5CCEc5a264d692aA7A8e16`) and mainnet. Wave 2 wired the adapter on testnet (AjoCircle
+   `0x463203F3Cd12653bEa11FfCd22512B11e2a91835`, adapter `0x02c9711eaD8b6d101A542eEC8DA2b41Cbe7eD6f6`). Circle 2
+   proved yield reaches a closing circle: **67454618812000 wei** total, of which ~0.0000228 MUSD was natural
+   protocol yield and ~0.0000447 MUSD was a synthetic testnet donation used only while diagnosing a harvest
+   checkpoint bug (do not present the donation as organic). A local adapter fix (always `claimYield` + live
+   `pendingYield`) is ready but not live until a redeploy; the live adapter is still the pre-fix build.
 
 **Target group**
 Nigerian (and wider African) informal savers who already run ajo/esusu/chama groups: market traders, church and
@@ -50,14 +54,15 @@ Mezo (testnet for Wave 1/2; sMUSD yield on testnet for Wave 2)
 **Project status**
 Working MVP. The contracts are complete and tested, and the web app covers create, invite, join, contribute,
 auto-payout, settle/default, early exit, claim, the yield panel and the onchain history.
-Live on Mezo testnet: contract [`0x94A5014b54bF748660AC0D953De67416fe34ea2C`](https://explorer.test.mezo.org/address/0x94A5014b54bF748660AC0D953De67416fe34ea2C) · app https://ajocircle.pages.dev (circle pages: `https://ajocircle.pages.dev/circle/?id=N`) · repo https://github.com/ajocircle-dev/ajocircle
+Live on Mezo testnet: Wave 2 contract [`0x463203F3Cd12653bEa11FfCd22512B11e2a91835`](https://explorer.test.mezo.org/address/0x463203F3Cd12653bEa11FfCd22512B11e2a91835) (sMUSD adapter `0x02c9711eaD8b6d101A542eEC8DA2b41Cbe7eD6f6`) · app https://ajocircle.pages.dev (circle pages: `https://ajocircle.pages.dev/circle/?id=N`) · repo https://github.com/ajocircle-dev/ajocircle
 
 **Readiness**
 Testnet MVP (demo-ready). Unaudited, and not for real funds yet.
 
 **Next 3 milestones**
-1. **Wave 2 (Nov 2–15):** wire sMUSD collateral yield on Mezo testnet, Get MUSD / sustainability copy, then
-   WhatsApp/Telegram reminders. Mainnet only with the user's explicit go-ahead.
+1. **Wave 2 (Nov 2–15):** sMUSD collateral yield is wired on Mezo testnet (circle 2 proved yield at close).
+   Next: redeploy the harvest-checkpoint adapter fix when the user OKs, then WhatsApp/Telegram reminders.
+   Mainnet only with the user's explicit go-ahead.
 2. **December pilot:** 5 real ajo circles in Lagos (about 50 members), with naira ↔ MUSD on/off-ramp partners for
    onboarding.
 3. **Q1 2027:** onchain good-payer reputation from repayment history, VRF-based payout order, larger circles and a

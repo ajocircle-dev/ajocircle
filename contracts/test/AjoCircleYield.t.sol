@@ -9,41 +9,73 @@ import {MockYieldAdapter} from "../src/yield/MockYieldAdapter.sol";
 import {MUSDSavingsRateAdapter} from "../src/yield/MUSDSavingsRateAdapter.sol";
 
 /// @dev Mirrors the MUSDSavingsRate surface we use: 1:1 principal, yield claimed separately in MUSD.
-///      `withdraw` auto-claims claimable yield and any `yieldOnNextWithdraw` (mirrors Mezo vault
-///      calling receiveYieldFromStrategy + _claimYield inside withdraw).
+///      Models the real vault's yieldIndex / supplyYieldIndex / claimableYield storage split:
+///      a raw index bump leaves `claimableYield` at 0 until `_update` (via claimYield, deposit,
+///      withdraw, or transfer). `withdraw` auto-claims after checkpointing (plus any
+///      `yieldOnNextWithdraw`, mirroring receiveYieldFromStrategy + _claimYield inside withdraw).
 contract MockSavingsRate {
     MockERC20 public immutable musdToken;
+    uint256 public totalSupply;
+    uint256 public yieldIndex;
     mapping(address => uint256) public balanceOf;
-    mapping(address => uint256) public claimableYield;
+    mapping(address => uint256) public supplyYieldIndex;
+    mapping(address => uint256) public claimableYield; // storage only; stale until _update
     mapping(address => uint256) public yieldOnNextWithdraw;
 
     constructor(MockERC20 musd_) {
         musdToken = musd_;
     }
 
+    function _update(address account) internal {
+        uint256 supplied = balanceOf[account];
+        if (supplied > 0) {
+            uint256 delta = yieldIndex - supplyYieldIndex[account];
+            supplyYieldIndex[account] = yieldIndex;
+            if (delta > 0) {
+                claimableYield[account] += (supplied * delta) / 1e18;
+            }
+        } else {
+            supplyYieldIndex[account] = yieldIndex;
+        }
+    }
+
     function deposit(uint256 amount) external {
+        _update(msg.sender);
         balanceOf[msg.sender] += amount;
+        totalSupply += amount;
         musdToken.transferFrom(msg.sender, address(this), amount);
     }
 
     function withdraw(uint256 amount) external {
+        _update(msg.sender);
         uint256 autoY = claimableYield[msg.sender] + yieldOnNextWithdraw[msg.sender];
         claimableYield[msg.sender] = 0;
         yieldOnNextWithdraw[msg.sender] = 0;
         if (autoY > 0) musdToken.transfer(msg.sender, autoY);
         balanceOf[msg.sender] -= amount;
+        totalSupply -= amount;
         musdToken.transfer(msg.sender, amount);
     }
 
+    /// @dev Like the real vault: checkpoint then pay. Safe to call when stored claimable is 0.
     function claimYield() external returns (uint256 y) {
+        _update(msg.sender);
         y = claimableYield[msg.sender];
         claimableYield[msg.sender] = 0;
-        musdToken.transfer(msg.sender, y);
+        if (y > 0) musdToken.transfer(msg.sender, y);
     }
 
+    /// @notice Directly credit stored claimable (legacy unit-test helper).
     function addYield(address account, uint256 amount) external {
         musdToken.mint(address(this), amount);
         claimableYield[account] += amount;
+    }
+
+    /// @notice Bump the global yield index without touching claimableYield storage (ProtocolYieldReceived).
+    function distributeYield(uint256 amount) external {
+        require(totalSupply > 0, "no supply");
+        musdToken.mint(address(this), amount);
+        yieldIndex += (amount * 1e18) / totalSupply;
     }
 
     /// @notice Yield that only appears during the next withdraw (strategy claim path).
@@ -412,5 +444,72 @@ contract AjoCircleYieldTest is Test {
             assertEq(musd.balanceOf(people[i]) - before, AMOUNT + 2e18, "collateral + yield share");
         }
         assertEq(musd.balanceOf(address(ajo2)), 0);
+    }
+
+    /// @notice Index bumps leave claimableYield storage at 0; harvest must still checkpoint via claimYield.
+    function test_SavingsRateAdapter_HarvestCheckpointsIndexOnlyYield() public {
+        MockSavingsRate vault = new MockSavingsRate(musd);
+        MUSDSavingsRateAdapter sAdapter = new MUSDSavingsRateAdapter(address(vault));
+        sAdapter.bind(); // this test contract is owner
+
+        musd.mint(address(this), 100e18);
+        musd.approve(address(sAdapter), type(uint256).max);
+        sAdapter.deposit(50e18);
+
+        assertEq(vault.claimableYield(address(sAdapter)), 0);
+        assertEq(sAdapter.pendingYield(), 0);
+
+        // Protocol-style index bump: storage claimable stays 0 until a checkpoint.
+        vault.distributeYield(5e18);
+        assertEq(vault.claimableYield(address(sAdapter)), 0, "storage claimable still stale");
+        assertEq(sAdapter.pendingYield(), 5e18, "pendingYield sees uncheckpointed index share");
+
+        uint256 before = musd.balanceOf(address(this));
+        uint256 got = sAdapter.harvest(address(this));
+        assertEq(got, 5e18, "harvest claimed index-only yield without dust transfer");
+        assertEq(musd.balanceOf(address(this)) - before, 5e18);
+        assertEq(vault.claimableYield(address(sAdapter)), 0);
+        assertEq(sAdapter.pendingYield(), 0);
+        assertEq(vault.balanceOf(address(sAdapter)), 50e18, "principal shares untouched");
+        assertEq(sAdapter.principal(), 50e18);
+    }
+
+    /// @notice Mid-circle getYield must reflect index-only yield via pendingYield (no dust checkpoint).
+    function test_SavingsRateAdapter_IndexYieldVisibleToCircleWithoutDust() public {
+        MockSavingsRate vault = new MockSavingsRate(musd);
+        MUSDSavingsRateAdapter sAdapter = new MUSDSavingsRateAdapter(address(vault));
+        AjoCircle ajo2 = new AjoCircle(address(sAdapter));
+        for (uint256 i; i < 3; i++) {
+            vm.prank(people[i]);
+            musd.approve(address(ajo2), type(uint256).max);
+        }
+        vm.prank(creator);
+        uint256 id = ajo2.createCircle(address(musd), AMOUNT, 3, ROUND, false, true, "index yield");
+        for (uint256 i; i < 3; i++) {
+            vm.prank(people[i]);
+            ajo2.join(id);
+        }
+        vm.prank(creator);
+        ajo2.start(id);
+
+        assertEq(vault.claimableYield(address(sAdapter)), 0);
+        vault.distributeYield(6e18);
+        assertEq(vault.claimableYield(address(sAdapter)), 0, "still stale until harvest/withdraw");
+        (, uint256 earned,) = ajo2.getYield(id);
+        assertEq(earned, 6e18, "getYield uses pendingYield live index share");
+
+        for (uint256 r; r < 3; r++) {
+            for (uint256 i; i < 3; i++) {
+                vm.prank(people[i]);
+                ajo2.contribute(id);
+            }
+        }
+        (,, uint256 distributed) = ajo2.getYield(id);
+        assertEq(distributed, 6e18);
+        assertEq(vault.balanceOf(address(sAdapter)), 0);
+        assertEq(musd.balanceOf(address(sAdapter)), 0);
+        for (uint256 i; i < 3; i++) {
+            assertEq(ajo2.yieldEarned(id, people[i]), 2e18);
+        }
     }
 }

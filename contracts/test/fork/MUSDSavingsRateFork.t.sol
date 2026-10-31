@@ -6,6 +6,15 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {AjoCircle} from "../../src/AjoCircle.sol";
 import {MUSDSavingsRateAdapter} from "../../src/yield/MUSDSavingsRateAdapter.sol";
 
+/// @dev Minimal surface for permissionless protocol yield push on the real vault.
+interface ISavingsVaultYield {
+    function receiveProtocolYield(uint256 amount) external;
+    function claimableYield(address account) external view returns (uint256);
+    function yieldIndex() external view returns (uint256);
+    function supplyYieldIndex(address account) external view returns (uint256);
+    function balanceOf(address account) external view returns (uint256);
+}
+
 /// @notice Local-fork checks of MUSDSavingsRateAdapter against real Mezo sMUSD vaults.
 ///         Nothing is broadcast: forge runs everything in a local fork.
 ///         Testnet (preferred for Wave 2):
@@ -84,5 +93,55 @@ contract MUSDSavingsRateForkTest is Test {
             ajo.claimPayout(id);
             assertGe(IERC20(musd).balanceOf(ppl[i]), 4 * amount, "nobody lost principal");
         }
+    }
+
+    /// @notice Index bump leaves claimableYield storage at 0; fixed adapter harvests without dust sMUSD.
+    function test_Fork_Testnet_HarvestClaimsIndexOnlyYieldWithoutDust() public {
+        string memory rpc = vm.envOr("MEZO_TESTNET_RPC", string(""));
+        if (bytes(rpc).length == 0) {
+            vm.skip(true);
+            return;
+        }
+        vm.createSelectFork(rpc);
+
+        MUSDSavingsRateAdapter adapter = new MUSDSavingsRateAdapter(TESTNET_SMUSD);
+        adapter.bind();
+
+        uint256 principalAmt = 20e18;
+        uint256 pushAmt = 2e18; // small testnet donation into the vault index
+        vm.prank(TESTNET_WHALE);
+        IERC20(TESTNET_MUSD).transfer(address(this), principalAmt + pushAmt);
+        IERC20(TESTNET_MUSD).approve(address(adapter), principalAmt);
+        adapter.deposit(principalAmt);
+
+        ISavingsVaultYield v = ISavingsVaultYield(TESTNET_SMUSD);
+        uint256 idxBefore = v.yieldIndex();
+        assertEq(v.claimableYield(address(adapter)), 0);
+        assertEq(v.supplyYieldIndex(address(adapter)), idxBefore);
+
+        IERC20(TESTNET_MUSD).approve(TESTNET_SMUSD, pushAmt);
+        v.receiveProtocolYield(pushAmt);
+
+        uint256 idxAfter = v.yieldIndex();
+        assertGt(idxAfter, idxBefore, "index bumped");
+        assertEq(v.claimableYield(address(adapter)), 0, "storage claimable still 0 after index bump");
+        uint256 pending = adapter.pendingYield();
+        assertGt(pending, 0, "pendingYield sees uncheckpointed share");
+        // Share ~= principal * deltaIndex / 1e18 (floor); well below the full push (other depositors exist).
+        assertLe(pending, pushAmt);
+
+        uint256 before = IERC20(TESTNET_MUSD).balanceOf(address(this));
+        uint256 got = adapter.harvest(address(this));
+        assertEq(got, pending, "harvest returns what pendingYield reported");
+        assertEq(IERC20(TESTNET_MUSD).balanceOf(address(this)) - before, got);
+        assertEq(v.claimableYield(address(adapter)), 0);
+        assertEq(adapter.pendingYield(), 0);
+        assertEq(v.balanceOf(address(adapter)), principalAmt, "no dust sMUSD left on adapter shares");
+        assertEq(adapter.principal(), principalAmt);
+
+        // Clean up: withdraw principal back so the fork leaves no stranded test funds in the adapter.
+        adapter.withdraw(principalAmt, address(this));
+        assertEq(adapter.principal(), 0);
+        assertEq(IERC20(TESTNET_MUSD).balanceOf(address(adapter)), 0);
     }
 }

@@ -1,6 +1,6 @@
 # Wave 2 handoff for Deployer (Mezo testnet only)
 
-STATUS (2026-10-31): Deployer finished v3 on testnet (`0x4632…1835` / adapter `0x02c9…D6f6`, block 16482570). Builder wired the web app. Push + Pages redeploy follow user go-ahead. Still do not submit Wave 2 / public posts without the user.
+STATUS (2026-10-31): Deployer finished v3 on testnet (`0x4632…1835` / adapter `0x02c9…D6f6`, block 16482570); circle 2 proved yield. Builder fixed harvest checkpoint locally (needs new adapter + new AjoCircle; see `WAVE2_ADAPTER_FIX_HANDOFF.md`). Push / Pages / redeploy / submit still need user OK.
 
 Original deploy brief below.
 

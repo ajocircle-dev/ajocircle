@@ -78,19 +78,30 @@ Mezo product docs say vault yield is fee revenue distributed on a weekly cadence
 redemption value. On-chain the Savings Rate vault uses a separate `yieldIndex` / `claimableYield` ledger:
 
 - Anyone (or protocol ops) can push MUSD in via `receiveProtocolYield(amount)` or
-  `receiveYieldFromStrategy()`. Each push raises `yieldIndex`. Depositors then earn
-  `balance * (yieldIndex - userYieldIndex) / 1e18` as claimable MUSD. `withdraw` auto-claims that before
-  returning principal.
+  `receiveYieldFromStrategy()`. Each push raises `yieldIndex`. Accrued share is
+  `balance * (yieldIndex - supplyYieldIndex) / 1e18`. The vault writes that into the **storage** mapping
+  `claimableYield` only inside `_updateYieldFor` (deposit / withdraw / transfer / `claimYield`). A raw index
+  bump leaves `claimableYield(account) = 0` until a checkpoint. `withdraw` and `claimYield` both checkpoint
+  then pay; `withdraw` auto-claims before returning principal.
 - There is **no continuous per-block interest**. A deposit that sits between two index bumps earns zero until
   the next bump after it deposited.
 - Observed on testnet (blocks ~16472692–16482691): multiple `ProtocolYieldReceived` events of about 1.02 MUSD
   each, roughly every ~870 blocks. `strategy.claimYield()` returned 0 and vault `pendingYield()` was 0 at
   check time. Vault `pcv` is `address(0)` on this testnet deployment.
-- The Wave 2 smoke circle (create to close in ~3 minutes, blocks 16482585–16482639) therefore correctly showed
-  **0 yield**: it deposited after the latest index bump and closed before the next one. Longer-lived collateral
-  that spans a protocol push will show non-zero `claimableYield` / AjoCircle yield.
-- Unit tests cover non-zero yield by having the mock vault auto-claim on withdraw; fork tests deposit/withdraw
-  against the real vault without requiring a live yield bump.
+- Circle 1 smoke (blocks 16482585–16482639, ~3 min) earned **0**: no index bump while parked.
+- Circle 2 "Wave2 Yield Proof" (blocks 16482778–16482979) **did** receive yield at close:
+  **67454618812000 wei total** (~6.745e-5 MUSD), split evenly. Of that, about **22780314561120 wei**
+  (~0.0000228 MUSD) came from a natural `ProtocolYieldReceived` (~1.02 MUSD push at block 16482783,
+  tx `0x66a179e4…4204`), and about **44674304250880 wei** (~0.0000447 MUSD) came from a **synthetic**
+  2 MUSD testnet donation via `receiveProtocolYield` (block 16482935, tx `0x8150d9a2…db0c`) used only while
+  diagnosing the checkpoint issue. Do **not** present the donation as organic vault yield.
+- **Adapter harvest checkpoint (code fix, not yet live):** the v3 live adapter `0x02c9…D6f6` gates
+  `claimYield` on stored `claimableYield > 0`, so mid-circle `harvest` / `pendingYield` miss index-only yield
+  until something checkpoints (Deployer used a 1 wei sMUSD transfer). Closing still worked because
+  `withdraw` always checkpoints. Local fix: always call `vault.claimYield()` in `harvest`, and compute
+  `pendingYield` as stored claimable + uncheckpointed index share + idle MUSD. No dust transfer. The live
+  site still runs the **pre-fix** adapter until a new adapter + AjoCircle are redeployed (adapter is bound
+  immutably; it cannot be swapped). See [`docs/WAVE2_ADAPTER_FIX_HANDOFF.md`](docs/WAVE2_ADAPTER_FIX_HANDOFF.md).
 
 ```bash
 cast call 0x6f461c68B2c5492C0F5CCEc5a264d692aA7A8e16 "musdToken()(address)" --rpc-url https://rpc.test.mezo.org

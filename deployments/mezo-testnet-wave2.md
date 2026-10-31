@@ -218,7 +218,19 @@ Member MUSD balances:
 
 Observed yield reaching the closing circle: **67454618812000 wei total** (~6.745e-5 MUSD), split evenly. `yieldEarned(2, member)` = 33727309406000 each. getYield(2) after close = (0, 67454618812000, 67454618812000).
 
-### Adapter note for Builder
+### Yield attribution (honest split)
 
-`MUSDSavingsRateAdapter.harvest` / `pendingYield` only see the vault's stored `claimableYield` mapping. Until something checkpoints the adapter (transfer/withdraw/claimYield), both read 0 even after `ProtocolYieldReceived`. On close, `withdraw` checkpoints and pays, so members still receive yield. A safer harvest would call `claimYield()` unconditionally (or probe via a view that recomputes the index formula). Leaving 1 wei sMUSD on the adapter is harmless dust from the checkpoint transfer.
+Closing circle 2 received **67454618812000 wei** total (~6.745e-5 MUSD):
+
+| Source | Approx share (wei) | Approx MUSD | Notes |
+| --- | ---: | ---: | --- |
+| Natural `ProtocolYieldReceived` @ block 16482783 ([0x66a179e4…4204](https://explorer.test.mezo.org/tx/0x66a179e4e870086bea02dbbcce555921d7d8a4800611ba4390f5949c55a44204)) | 22780314561120 | ~0.0000228 | Organic protocol push (~1.02 MUSD into vault) |
+| Synthetic test donation `receiveProtocolYield(2e18)` @ block 16482935 ([0x8150d9a2…db0c](https://explorer.test.mezo.org/tx/0x8150d9a2023c13ef4c606999c1d77497fb2954234406ae1167a928860bb6db0c)) | 44674304250880 | ~0.0000447 | Executor diagnosis only; **not** organic yield |
+| **Total to circle** | **67454618812000** | **~6.745e-5** | Split 50/50 to deployer and demo-1 |
+
+### Adapter note for Builder (issue + fix status)
+
+`claimableYield` on the vault is a **storage** mapping. Index bumps do not update it until `_updateYieldFor` runs (deposit / withdraw / transfer / `claimYield`). The **live** v3 adapter `0x02c9711eaD8b6d101A542eEC8DA2b41Cbe7eD6f6` gates `harvest` on `claimableYield > 0`, so it cannot self-checkpoint index-only yield; Deployer forced a checkpoint with a 1 wei sMUSD transfer ([0xd01b8c4e…4317](https://explorer.test.mezo.org/tx/0xd01b8c4e9f5d4c0db69faf7764c171e21d1d8c27030a2613aaecebb5f2b24317)). Close still credited yield because `withdraw` always checkpoints.
+
+**Local fix (not pushed, not redeployed):** `harvest` always calls `vault.claimYield()`; `pendingYield` adds the live uncheckpointed index share. No dust. Unit + testnet fork coverage added. Live app remains on the pre-fix adapter until user OK to redeploy (requires **new adapter + new AjoCircle**; `yieldAdapter` is immutable). Handoff: [`docs/WAVE2_ADAPTER_FIX_HANDOFF.md`](../docs/WAVE2_ADAPTER_FIX_HANDOFF.md).
 
