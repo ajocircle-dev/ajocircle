@@ -35,7 +35,7 @@ export function MusdBanner() {
         </p>
       </div>
       <div className="musd-yield">
-        <span className="muted small">Collateral yield</span>
+        <span className="muted small">Collateral yield (sMUSD)</span>
         {!loaded ? (
           <strong>…</strong>
         ) : adapter ? (
@@ -48,8 +48,8 @@ export function MusdBanner() {
             )}
           </strong>
         ) : (
-          <strong title="The MUSD Savings Vault (sMUSD) is live on Mezo mainnet only; this testnet deployment keeps collateral as plain MUSD.">
-            Off on this deployment (sMUSD vault is mainnet-only)
+          <strong title="sMUSD works on Mezo testnet and mainnet. This deployment was built without an adapter wired in; a Wave 2 redeploy turns it on.">
+            Off on this deployment (adapter not wired yet; sMUSD is live on testnet)
           </strong>
         )}
       </div>

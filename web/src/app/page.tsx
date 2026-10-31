@@ -5,6 +5,7 @@ import { MusdBanner } from "@/components/MusdBanner";
 import { LiveStats } from "@/components/LiveStats";
 import { HeroArt } from "@/components/HeroArt";
 import { faucetUrl } from "@/lib/config";
+import { GetMusdSection, SustainSection } from "@/components/GetMusdAndSustain";
 
 const STEPS = [
   { t: "Create a circle", d: "Pick the contribution in MUSD, how many members, how long each round lasts, and whether the payout order is join order or random." },
@@ -43,10 +44,11 @@ const FAQ: { q: string; a: React.ReactNode }[] = [
     a: (
       <>
         Get test BTC for gas from the{" "}
-        <a href={faucetUrl ?? "https://faucet.test.mezo.org/"} target="_blank" rel="noreferrer">Mezo testnet faucet</a>. To get
-        test MUSD, borrow it against test BTC at{" "}
-        <a href="https://testnet.mezo.org" target="_blank" rel="noreferrer">testnet.mezo.org</a> (borrowing has a minimum
-        debt of 2,000 MUSD). See the <a href="https://mezo.org/docs" target="_blank" rel="noreferrer">Mezo docs</a> for details.
+        <a href={faucetUrl ?? "https://faucet.test.mezo.org/"} target="_blank" rel="noreferrer">Mezo testnet faucet</a>.
+        Borrow test MUSD against test BTC at{" "}
+        <a href="https://testnet.mezo.org" target="_blank" rel="noreferrer">testnet.mezo.org</a>. On mainnet you can also
+        buy MUSD with a card (Banxa), swap on Mezo Swap, or bridge MUSD from Ethereum/Base. See the{" "}
+        <a href="#get-musd">Get MUSD</a> section below for verified links.
       </>
     ),
   },
@@ -179,6 +181,7 @@ export default function Home() {
           <div>
             <span className="kicker">Circles</span>
             <h2 className="h2">Join a circle or start your own</h2>
+            <p className="muted">List below is read live from the contract. Only real on-chain circles appear. Outside users are still needed for circles run by people outside the team.</p>
           </div>
           <div className="cta" style={{ margin: 0 }}>
             <Link className="btn ghost" href="/dashboard/">Open dashboard</Link>
@@ -199,6 +202,10 @@ export default function Home() {
           </div>
         </div>
       </section>
+
+      <GetMusdSection />
+
+      <SustainSection />
 
       <section id="faq" className="section">
         <div className="section-head">

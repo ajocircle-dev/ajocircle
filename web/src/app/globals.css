@@ -388,3 +388,6 @@ tr.current td { background: var(--accent-soft); }
   .dtable td.go .btn { width: 100%; }
   .dl { align-items: flex-end; }
 }
+
+.plain-list { list-style: disc; padding-left: 1.25rem; margin: 0; display: grid; gap: 0.75rem; }
+.plain-list li { line-height: 1.45; }
