@@ -6,11 +6,11 @@ TESTNET ONLY. No secrets in this file. Keystores live in ~/.foundry/keystores, p
 Token: MUSD (testnet) `0x118917a40FAF1CD7a13dB0Ef56C86De7973Ac503` (18 decimals)
 Deployer: `0x7E084Cb20EBe4a3ca1353EF24c96D048AAB50146` (keystore `mezo-testnet-deployer`)
 
-**Current live app (Wave 2 / v3):** AjoCircle `0x463203F3Cd12653bEa11FfCd22512B11e2a91835` + adapter `0x02c9711eaD8b6d101A542eEC8DA2b41Cbe7eD6f6`, deploy block `16482570`. Full record: [`mezo-testnet-wave2.md`](mezo-testnet-wave2.md).
+**Current live app (Wave 2 / v4):** AjoCircle `0xc2B6e4Bec56F1fd129D4bCd1CB8e4271303B0dda` + adapter `0x01CAc7439F725E8EfF215E25a0444987bcf8521E`, deploy block `16487793`. Full record: [`mezo-testnet-wave2.md`](mezo-testnet-wave2.md). Prior v3: `0x463203F3Cd12653bEa11FfCd22512B11e2a91835` / `0x02c9711eaD8b6d101A542eEC8DA2b41Cbe7eD6f6` (block `16482570`).
 
 Do NOT call `settleRound` on seeded demo circles on v1 or v2.
 
-## AjoCircle v2 (historical Wave 1; live app moved to v3)
+## AjoCircle v2 (historical Wave 1; live app moved to Wave 2)
 - Commit: `31dcaf9a725b2cfd27bbd30079afdf463653bcea` (main, 32 tests pass / 1 skipped)
 - Constructor: yield adapter = `0x0000000000000000000000000000000000000000` (no yield; YIELD_ADAPTER/SMUSD_VAULT/DEPLOY_MOCK_ADAPTER unset)
 - Address: `0x94A5014b54bF748660AC0D953De67416fe34ea2C`: https://explorer.test.mezo.org/address/0x94A5014b54bF748660AC0D953De67416fe34ea2C
@@ -182,14 +182,25 @@ Page: https://ajocircle.pages.dev/circle/?id=5
 Balances after seeding (Oct 24 2026 ~11:25 WAT), all allowances to AjoCircle 0: demo-1 460 MUSD / 0.0019999995 BTC; demo-2 480 MUSD / 0.0019999995 BTC; demo-3 450 MUSD / 0.0019999996 BTC; deployer 195 MUSD / ~0.0047183 BTC. AjoCircle holds 175 MUSD (circle 1: 30 collateral; circle 3: 45 collateral + 30 pot; circle 4: 40 collateral; circle 5: 30 collateral). No gas top-ups were needed.
 
 
-## AjoCircle Wave 2 / v3 (current for Wave 2 work)
+## AjoCircle Wave 2 / v3 (historical; superseded by v4)
 
 See full record: [mezo-testnet-wave2.md](./mezo-testnet-wave2.md)
 
-- Commit: `749384f` (local)
+- Commit: `749384f`
 - MUSDSavingsRateAdapter: `0x02c9711eaD8b6d101A542eEC8DA2b41Cbe7eD6f6` (vault `0x6f461c68B2c5492C0F5CCEc5a264d692aA7A8e16`)
 - AjoCircle: `0x463203F3Cd12653bEa11FfCd22512B11e2a91835` (deploy block 16482570)
 - Broadcast: deployments/mezo-testnet-v3.json
 - Verification: Sourcify exact_match for both
-- Web env: NEXT_PUBLIC_CHAIN=mezoTestnet, NEXT_PUBLIC_AJO_ADDRESS=0x463203F3Cd12653bEa11FfCd22512B11e2a91835, NEXT_PUBLIC_DEPLOY_BLOCK=16482570
-- Live Pages still points at v2 until user go-ahead to redeploy
+- Web env (historical): NEXT_PUBLIC_CHAIN=mezoTestnet, NEXT_PUBLIC_AJO_ADDRESS=0x463203F3Cd12653bEa11FfCd22512B11e2a91835, NEXT_PUBLIC_DEPLOY_BLOCK=16482570
+
+## AjoCircle Wave 2 / v4 (current live; harvest-checkpoint fix)
+
+See full record: [mezo-testnet-wave2.md](./mezo-testnet-wave2.md) (v4 section).
+
+- Source commit: `28e800c` (adapter harvest always `claimYield` + live `pendingYield`); deploy notes `5396e0a`
+- MUSDSavingsRateAdapter: `0x01CAc7439F725E8EfF215E25a0444987bcf8521E` (vault `0x6f461c68B2c5492C0F5CCEc5a264d692aA7A8e16`)
+- AjoCircle: `0xc2B6e4Bec56F1fd129D4bCd1CB8e4271303B0dda` (deploy block 16487793)
+- Broadcast: deployments/mezo-testnet-v4.json
+- Verification: Sourcify exact_match for both
+- Web env: NEXT_PUBLIC_CHAIN=mezoTestnet, NEXT_PUBLIC_AJO_ADDRESS=0xc2B6e4Bec56F1fd129D4bCd1CB8e4271303B0dda, NEXT_PUBLIC_DEPLOY_BLOCK=16487793
+- Smoke: circle 1 "Wave2 Adapter Fix Smoke" closed with natural yield 22780314561120 wei (11390157280560 each), no donation

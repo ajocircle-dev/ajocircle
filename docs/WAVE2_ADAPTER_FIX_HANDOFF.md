@@ -1,7 +1,7 @@
 # Wave 2 adapter harvest-checkpoint fix (Deployer handoff)
 
-STATUS: **LOCAL ONLY.** Builder fixed the adapter in source and tests. Do **not** push, do **not** redeploy
-Pages, do **not** deploy contracts until the user explicitly OKs this follow-up.
+STATUS: **DONE (2026-10-31).** User OKed testnet redeploy + push + Pages. Deployer shipped v4 on Mezo
+testnet; Builder wired the live app. See `deployments/mezo-testnet-wave2.md` (v4 section).
 
 Network: Mezo testnet 31611 only. Zero real spend. Never call `settleRound` on seeded demos on v1/v2, and do
 not disturb circles 1–2 on live v3 unless the user asks for a new proof circle on a new deploy.
@@ -58,16 +58,15 @@ Optional: short collateral circle spanning a natural `ProtocolYieldReceived` (or
 documented synthetic push). Confirm `pendingYield` / `getYield` show yield **without** a dust sMUSD transfer,
 then close and confirm members receive yield.
 
-### Web / Pages (separate user OK)
+### Web / Pages (done)
 
 ```bash
 cd web
 NEXT_PUBLIC_CHAIN=mezoTestnet \
-NEXT_PUBLIC_AJO_ADDRESS=<NEW_AJO> \
-NEXT_PUBLIC_DEPLOY_BLOCK=<deploy_block> \
+NEXT_PUBLIC_AJO_ADDRESS=0xc2B6e4Bec56F1fd129D4bCd1CB8e4271303B0dda \
+NEXT_PUBLIC_DEPLOY_BLOCK=16487793 \
 npm run build
-# only with user OK:
-# npx -p node@22 -p wrangler wrangler pages deploy out --project-name ajocircle --branch main
+npx -p node@22 -p wrangler wrangler pages deploy out --project-name ajocircle --branch main
 ```
 
 ## Builder verification already done (local)
@@ -78,10 +77,9 @@ npm run build
 - `MEZO_TESTNET_RPC=https://rpc.test.mezo.org forge test --match-path 'test/fork/*'`:
   round-trip PASS + `test_Fork_Testnet_HarvestClaimsIndexOnlyYieldWithoutDust` PASS (mainnet fork skipped)
 
-## Out of scope until user OK
+## Remaining (still need user OK)
 
-- Push to GitHub
-- Cloudflare Pages redeploy
-- On-chain deploy of adapter / AjoCircle
 - Wave 2 AKINDO submission / public posts
 - Mainnet or any real-fund spend
+
+Done: on-chain v4 deploy, push to GitHub, Cloudflare Pages redeploy to v4 addresses.

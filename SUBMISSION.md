@@ -27,12 +27,13 @@ Mezo's MUSD Savings Vault. It's the same savings habit, without the treasurer yo
 4. **MUSD use:** MUSD is the unit of account for every contribution, pot and collateral. Through an `IYieldAdapter`,
    collateral (never the pot) can be routed into the **MUSD Savings Vault (sMUSD)**, which has no lock-up. The yield is
    shared back to members pro rata at close. The sMUSD vault is live on Mezo testnet
-   (`0x6f461c68B2c5492C0F5CCEc5a264d692aA7A8e16`) and mainnet. Wave 2 wired the adapter on testnet (AjoCircle
-   `0x463203F3Cd12653bEa11FfCd22512B11e2a91835`, adapter `0x02c9711eaD8b6d101A542eEC8DA2b41Cbe7eD6f6`). Circle 2
-   proved yield reaches a closing circle: **67454618812000 wei** total, of which ~0.0000228 MUSD was natural
-   protocol yield and ~0.0000447 MUSD was a synthetic testnet donation used only while diagnosing a harvest
-   checkpoint bug (do not present the donation as organic). A local adapter fix (always `claimYield` + live
-   `pendingYield`) is ready but not live until a redeploy; the live adapter is still the pre-fix build.
+   (`0x6f461c68B2c5492C0F5CCEc5a264d692aA7A8e16`) and mainnet. Wave 2 v4 (live) wires the harvest-checkpoint
+   adapter on testnet (AjoCircle `0xc2B6e4Bec56F1fd129D4bCd1CB8e4271303B0dda`, adapter
+   `0x01CAc7439F725E8EfF215E25a0444987bcf8521E`, block 16487793). Smoke circle "Wave2 Adapter Fix Smoke" closed
+   with **natural** yield only of **22780314561120 wei** total, split **11390157280560 wei** per member (no
+   donation). Earlier v3 circle 2 also proved yield at close (**67454618812000 wei** total), of which ~0.0000228
+   MUSD was natural and ~0.0000447 MUSD was a synthetic testnet donation used only while diagnosing; do not
+   present that donation as organic.
 
 **Target group**
 Nigerian (and wider African) informal savers who already run ajo/esusu/chama groups: market traders, church and
@@ -54,14 +55,14 @@ Mezo (testnet for Wave 1/2; sMUSD yield on testnet for Wave 2)
 **Project status**
 Working MVP. The contracts are complete and tested, and the web app covers create, invite, join, contribute,
 auto-payout, settle/default, early exit, claim, the yield panel and the onchain history.
-Live on Mezo testnet: Wave 2 contract [`0x463203F3Cd12653bEa11FfCd22512B11e2a91835`](https://explorer.test.mezo.org/address/0x463203F3Cd12653bEa11FfCd22512B11e2a91835) (sMUSD adapter `0x02c9711eaD8b6d101A542eEC8DA2b41Cbe7eD6f6`) · app https://ajocircle.pages.dev (circle pages: `https://ajocircle.pages.dev/circle/?id=N`) · repo https://github.com/ajocircle-dev/ajocircle
+Live on Mezo testnet: Wave 2 v4 contract [`0xc2B6e4Bec56F1fd129D4bCd1CB8e4271303B0dda`](https://explorer.test.mezo.org/address/0xc2B6e4Bec56F1fd129D4bCd1CB8e4271303B0dda) (sMUSD adapter `0x01CAc7439F725E8EfF215E25a0444987bcf8521E`) · app https://ajocircle.pages.dev (circle pages: `https://ajocircle.pages.dev/circle/?id=N`) · repo https://github.com/ajocircle-dev/ajocircle
 
 **Readiness**
 Testnet MVP (demo-ready). Unaudited, and not for real funds yet.
 
 **Next 3 milestones**
-1. **Wave 2 (Nov 2–15):** sMUSD collateral yield is wired on Mezo testnet (circle 2 proved yield at close).
-   Next: redeploy the harvest-checkpoint adapter fix when the user OKs, then WhatsApp/Telegram reminders.
+1. **Wave 2 (Nov 2–15):** sMUSD collateral yield is wired on Mezo testnet; v4 harvest-checkpoint adapter is live
+   (natural yield proved on "Wave2 Adapter Fix Smoke"). Next: WhatsApp/Telegram reminders.
    Mainnet only with the user's explicit go-ahead.
 2. **December pilot:** 5 real ajo circles in Lagos (about 50 members), with naira ↔ MUSD on/off-ramp partners for
    onboarding.

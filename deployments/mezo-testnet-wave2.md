@@ -1,4 +1,4 @@
-# AjoCircle Mezo TESTNET Wave 2 (v3) deployment
+# AjoCircle Mezo TESTNET Wave 2 deployment (v3 historical + v4 live)
 
 Network: Mezo testnet, chain ID 31611, RPC https://rpc.test.mezo.org, explorer https://explorer.test.mezo.org
 TESTNET ONLY. Zero real spend. No secrets in this file. Keystores live in ~/.foundry/keystores, passwords in /home/box/.secrets (600).
@@ -44,7 +44,7 @@ ajo.yieldAdapter()     = 0x02c9711eaD8b6d101A542eEC8DA2b41Cbe7eD6f6
 ajo.yieldAsset()       = 0x118917a40FAF1CD7a13dB0Ef56C86De7973Ac503
 ```
 
-## Web env values (wired into live app)
+## Web env values (v3; superseded by v4 below)
 
 ```
 NEXT_PUBLIC_CHAIN=mezoTestnet
@@ -232,7 +232,7 @@ Closing circle 2 received **67454618812000 wei** total (~6.745e-5 MUSD):
 
 `claimableYield` on the vault is a **storage** mapping. Index bumps do not update it until `_updateYieldFor` runs (deposit / withdraw / transfer / `claimYield`). The **live** v3 adapter `0x02c9711eaD8b6d101A542eEC8DA2b41Cbe7eD6f6` gates `harvest` on `claimableYield > 0`, so it cannot self-checkpoint index-only yield; Deployer forced a checkpoint with a 1 wei sMUSD transfer ([0xd01b8c4e…4317](https://explorer.test.mezo.org/tx/0xd01b8c4e9f5d4c0db69faf7764c171e21d1d8c27030a2613aaecebb5f2b24317)). Close still credited yield because `withdraw` always checkpoints.
 
-**Local fix (not pushed, not redeployed):** `harvest` always calls `vault.claimYield()`; `pendingYield` adds the live uncheckpointed index share. No dust. Unit + testnet fork coverage added. Live app remains on the pre-fix adapter until user OK to redeploy (requires **new adapter + new AjoCircle**; `yieldAdapter` is immutable). Handoff: [`docs/WAVE2_ADAPTER_FIX_HANDOFF.md`](../docs/WAVE2_ADAPTER_FIX_HANDOFF.md).
+**Fix shipped as Wave 2 v4** (section below): `harvest` always calls `vault.claimYield()`; `pendingYield` adds the live uncheckpointed index share. No dust. Unit + testnet fork coverage. Live app points at the new adapter + AjoCircle (`yieldAdapter` is immutable, so a fresh pair was required). Handoff archive: [`docs/WAVE2_ADAPTER_FIX_HANDOFF.md`](../docs/WAVE2_ADAPTER_FIX_HANDOFF.md).
 
 
 
@@ -302,7 +302,7 @@ Index yield picked up **without** dust transfer and **without** donation:
 
 On close: total yield to circle 22780314561120 wei; `yieldEarned` 11390157280560 each; status Completed; adapter principal 0; vault.balanceOf(adapter) 0; no stranded funds. Members claimed collateral + yield share.
 
-### Web env (not Pages-redeployed; needs separate user OK)
+### Web env (wired into live app)
 
 ```
 NEXT_PUBLIC_CHAIN=mezoTestnet
@@ -310,4 +310,4 @@ NEXT_PUBLIC_AJO_ADDRESS=0xc2B6e4Bec56F1fd129D4bCd1CB8e4271303B0dda
 NEXT_PUBLIC_DEPLOY_BLOCK=16487793
 ```
 
-Old v1/v2 demos and v3 circles 1-2 were not touched. Not pushed.
+Old v1/v2 demos and v3 circles 1-2 were not touched.

@@ -2,7 +2,7 @@
 
 > Rotating savings with stablecoins. The smart contract keeps the books, so nobody has to trust the treasurer.
 
-**Live demo: [ajocircle.pages.dev](https://ajocircle.pages.dev)** (Mezo testnet, chain 31611; Wave 2 contract `0x463203F3Cd12653bEa11FfCd22512B11e2a91835`, sMUSD adapter `0x02c9711eaD8b6d101A542eEC8DA2b41Cbe7eD6f6`)
+**Live demo: [ajocircle.pages.dev](https://ajocircle.pages.dev)** (Mezo testnet, chain 31611; Wave 2 v4 contract `0xc2B6e4Bec56F1fd129D4bCd1CB8e4271303B0dda`, sMUSD adapter `0x01CAc7439F725E8EfF215E25a0444987bcf8521E`)
 
 ## Problem
 
@@ -67,10 +67,11 @@ Checked on 2026-10-31 against `https://rpc.test.mezo.org`:
    `claimableYield`). `withdraw` auto-claims yield to the caller before returning principal.
 2. **StabilityPool is still not used.** It can shrink principal in liquidations and freeze withdrawals. AjoCircle
    only wraps the Savings Vault.
-3. **Live Wave 2 deploy (v3):** AjoCircle `0x463203F3Cd12653bEa11FfCd22512B11e2a91835` with
-   `MUSDSavingsRateAdapter` `0x02c9711eaD8b6d101A542eEC8DA2b41Cbe7eD6f6` (vault above), deploy block `16482570`.
-   Record: [`deployments/mezo-testnet-wave2.md`](deployments/mezo-testnet-wave2.md). Prior v2 (no adapter) remains
-   at `0x94A5014b54bF748660AC0D953De67416fe34ea2C` for historical demo circles; do not call `settleRound` on them.
+3. **Live Wave 2 deploy (v4, harvest-checkpoint fix):** AjoCircle `0xc2B6e4Bec56F1fd129D4bCd1CB8e4271303B0dda` with
+   `MUSDSavingsRateAdapter` `0x01CAc7439F725E8EfF215E25a0444987bcf8521E` (vault above), deploy block `16487793`.
+   Record: [`deployments/mezo-testnet-wave2.md`](deployments/mezo-testnet-wave2.md). Prior v3
+   (`0x463203F3Cd12653bEa11FfCd22512B11e2a91835` / `0x02c9711eaD8b6d101A542eEC8DA2b41Cbe7eD6f6`, block `16482570`)
+   and v2 (`0x94A5014b54bF748660AC0D953De67416fe34ea2C`) remain historical; do not call `settleRound` on seeded demos.
 
 #### How sMUSD yield actually accrues (honest)
 
@@ -95,13 +96,16 @@ redemption value. On-chain the Savings Rate vault uses a separate `yieldIndex` /
   tx `0x66a179e4…4204`), and about **44674304250880 wei** (~0.0000447 MUSD) came from a **synthetic**
   2 MUSD testnet donation via `receiveProtocolYield` (block 16482935, tx `0x8150d9a2…db0c`) used only while
   diagnosing the checkpoint issue. Do **not** present the donation as organic vault yield.
-- **Adapter harvest checkpoint (code fix, not yet live):** the v3 live adapter `0x02c9…D6f6` gates
-  `claimYield` on stored `claimableYield > 0`, so mid-circle `harvest` / `pendingYield` miss index-only yield
-  until something checkpoints (Deployer used a 1 wei sMUSD transfer). Closing still worked because
-  `withdraw` always checkpoints. Local fix: always call `vault.claimYield()` in `harvest`, and compute
-  `pendingYield` as stored claimable + uncheckpointed index share + idle MUSD. No dust transfer. The live
-  site still runs the **pre-fix** adapter until a new adapter + AjoCircle are redeployed (adapter is bound
-  immutably; it cannot be swapped). See [`docs/WAVE2_ADAPTER_FIX_HANDOFF.md`](docs/WAVE2_ADAPTER_FIX_HANDOFF.md).
+- **Adapter harvest checkpoint (live on v4):** the old v3 adapter `0x02c9…D6f6` gated `claimYield` on stored
+  `claimableYield > 0`, so mid-circle `harvest` / `pendingYield` missed index-only yield until something
+  checkpointed (a 1 wei sMUSD transfer was used once while diagnosing). Closing still worked because
+  `withdraw` always checkpoints. **Fix now live:** `harvest` always calls `vault.claimYield()`, and
+  `pendingYield` is stored claimable + uncheckpointed index share + idle MUSD. No dust transfer. Smoke circle
+  "Wave2 Adapter Fix Smoke" on v4 closed with **natural** yield only of **22780314561120 wei** total
+  (~0.0000228 MUSD), split **11390157280560 wei** per member, after natural `ProtocolYieldReceived`
+  [0x9cffbac5…fe7b](https://explorer.test.mezo.org/tx/0x9cffbac558e596d783e0f80b078921398e3a4461aeeaed5e23a68e3991b7fe7b)
+  and close [0x1bd2c770…ac96](https://explorer.test.mezo.org/tx/0x1bd2c77089e1fd9be24d3b5d9af0c8aa610e31840b918ca3d8265b075809ac96).
+  No donation. See [`deployments/mezo-testnet-wave2.md`](deployments/mezo-testnet-wave2.md).
 
 ```bash
 cast call 0x6f461c68B2c5492C0F5CCEc5a264d692aA7A8e16 "musdToken()(address)" --rpc-url https://rpc.test.mezo.org
@@ -226,8 +230,8 @@ Circle pages are resolved on the client, so the route is `/circle/?id=N` (ids st
 ```bash
 cd web
 NEXT_PUBLIC_CHAIN=mezoTestnet \
-NEXT_PUBLIC_AJO_ADDRESS=0x463203F3Cd12653bEa11FfCd22512B11e2a91835 \
-NEXT_PUBLIC_DEPLOY_BLOCK=16482570 \
+NEXT_PUBLIC_AJO_ADDRESS=0xc2B6e4Bec56F1fd129D4bCd1CB8e4271303B0dda \
+NEXT_PUBLIC_DEPLOY_BLOCK=16487793 \
 npm run build            # writes the static site to web/out
 npx -p node@22 -p wrangler wrangler pages deploy out --project-name ajocircle --branch main
 ```
@@ -237,11 +241,12 @@ For a GitHub Pages project site, also set `NEXT_PUBLIC_BASE_PATH=/ajocircle`.
 
 | Network | AjoCircle | Deploy block | Explorer | Live app |
 | --- | --- | --- | --- | --- |
-| Mezo testnet (31611), Wave 2 sMUSD adapter | `0x463203F3Cd12653bEa11FfCd22512B11e2a91835` | `16482570` | [explorer](https://explorer.test.mezo.org/address/0x463203F3Cd12653bEa11FfCd22512B11e2a91835) · [Sourcify](https://repo.sourcify.dev/31611/0x463203F3Cd12653bEa11FfCd22512B11e2a91835) | [ajocircle.pages.dev](https://ajocircle.pages.dev) |
+| Mezo testnet (31611), Wave 2 v4 sMUSD adapter (live) | `0xc2B6e4Bec56F1fd129D4bCd1CB8e4271303B0dda` | `16487793` | [explorer](https://explorer.test.mezo.org/address/0xc2B6e4Bec56F1fd129D4bCd1CB8e4271303B0dda) · [Sourcify](https://repo.sourcify.dev/31611/0xc2B6e4Bec56F1fd129D4bCd1CB8e4271303B0dda) | [ajocircle.pages.dev](https://ajocircle.pages.dev) |
+| Mezo testnet (31611), Wave 2 v3 (historical) | `0x463203F3Cd12653bEa11FfCd22512B11e2a91835` | `16482570` | [explorer](https://explorer.test.mezo.org/address/0x463203F3Cd12653bEa11FfCd22512B11e2a91835) · [Sourcify](https://repo.sourcify.dev/31611/0x463203F3Cd12653bEa11FfCd22512B11e2a91835) | (retired from live app) |
 | Mezo testnet (31611), Wave 1 no adapter (historical) | `0x94A5014b54bF748660AC0D953De67416fe34ea2C` | `16336238` | [explorer](https://explorer.test.mezo.org/address/0x94A5014b54bF748660AC0D953De67416fe34ea2C) · [Sourcify](https://repo.sourcify.dev/31611/0x94A5014b54bF748660AC0D953De67416fe34ea2C) | (retired from live app) |
 | Arc mainnet (5042) | `TBD` | `TBD` | https://explorer.arc.io/address/TBD | `TBD` |
 
-Wave 2 adapter: `0x02c9711eaD8b6d101A542eEC8DA2b41Cbe7eD6f6`. Deploy tx: [0xf08a41…d88b](https://explorer.test.mezo.org/tx/0xf08a412b6eebbafa8c01ba8e17657da002f01d03a9b8f8c6cf40a49b533dd88b). Full record: [`deployments/mezo-testnet-wave2.md`](deployments/mezo-testnet-wave2.md). Wave 1 notes: [`deployments/mezo-testnet.md`](deployments/mezo-testnet.md).
+Wave 2 v4 adapter: `0x01CAc7439F725E8EfF215E25a0444987bcf8521E`. Deploy tx: [0x01c1391c…e9fe](https://explorer.test.mezo.org/tx/0x01c1391ce15f382b4f64124863997e7a9a21390b6eac2efaf39c7f3b845fe9fe) (AjoCircle). Full record: [`deployments/mezo-testnet-wave2.md`](deployments/mezo-testnet-wave2.md). Wave 1 notes: [`deployments/mezo-testnet.md`](deployments/mezo-testnet.md).
 
 Pitch deck: [`docs/AjoCircle-Mezo-deck.pdf`](docs/AjoCircle-Mezo-deck.pdf)
 

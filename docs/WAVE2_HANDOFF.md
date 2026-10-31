@@ -1,6 +1,6 @@
 # Wave 2 handoff for Deployer (Mezo testnet only)
 
-STATUS (2026-10-31): Deployer finished v3 on testnet (`0x4632…1835` / adapter `0x02c9…D6f6`, block 16482570); circle 2 proved yield. Builder fixed harvest checkpoint locally (needs new adapter + new AjoCircle; see `WAVE2_ADAPTER_FIX_HANDOFF.md`). Push / Pages / redeploy / submit still need user OK.
+STATUS (2026-10-31): DONE on testnet. v3 (`0x4632…1835` / `0x02c9…D6f6`, block 16482570) then v4 harvest-checkpoint fix (`0xc2B6…0dda` / `0x01CA…521E`, block 16487793). Live app wired to v4. Original deploy brief below (historical). Wave 2 AKINDO submit still needs user OK.
 
 Original deploy brief below.
 
@@ -85,11 +85,10 @@ MEZO_TESTNET_RPC=https://rpc.test.mezo.org forge test --match-path 'test/fork/*'
 ```bash
 cd web
 NEXT_PUBLIC_CHAIN=mezoTestnet \
-NEXT_PUBLIC_AJO_ADDRESS=0x463203F3Cd12653bEa11FfCd22512B11e2a91835 \
-NEXT_PUBLIC_DEPLOY_BLOCK=16482570 \
+NEXT_PUBLIC_AJO_ADDRESS=0xc2B6e4Bec56F1fd129D4bCd1CB8e4271303B0dda \
+NEXT_PUBLIC_DEPLOY_BLOCK=16487793 \
 npm run build
-# then, only with user OK:
-# npx -p node@22 -p wrangler wrangler pages deploy out --project-name ajocircle --branch main
+npx -p node@22 -p wrangler wrangler pages deploy out --project-name ajocircle --branch main
 ```
 
 Also regenerate the ABI if needed: `forge build` then `cd web && npm run abi`.
