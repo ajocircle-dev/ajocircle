@@ -21,12 +21,12 @@ a savings habit that millions of Nigerians already have.
 | **0:30–0:50** | Wallet C opens the invite link (`https://ajocircle.pages.dev/circle/?id=N`), clicks **Approve & join** (collateral), and A clicks **Start** | "The organiser shares one link in the family group. Chi joins and posts one contribution as collateral. The circle is full, so it starts and the payout order is locked onchain." |
 | **0:50–1:10** | A, B and C click **Contribute**. On the third click the **next payout** box flips and the History shows *pot sent to Ada* | "Everyone pays 10 MUSD. When the last payment lands, the contract pays the 30 MUSD pot to this round's recipient in the same transaction. There's no treasurer and no waiting." |
 | **1:10–1:30** | Completed circle: the members table shows a **defaulter** badge; History shows *collateral slashed*, *pot credited* | "If someone misses a round, anyone can settle it after the deadline. Their collateral covers the payment, the recipient still gets a full pot, and the missed payment is on the public record." |
-| **1:30–1:45** | Yield panel ("Collateral earning", "+ yield") or the README MUSD-yield table | "Collateral would normally sit idle. AjoCircle can route it into Mezo's **MUSD Savings Vault** through an adapter, with no lock-up, and share the yield back at close. The pot never leaves the contract, so payouts stay on time. Mainnet uses sMUSD, and testnet runs plain MUSD." |
+| **1:30–1:45** | Yield panel ("Collateral earning", "+ yield") or the README MUSD-yield table | "Collateral would normally sit idle. AjoCircle can route it into Mezo's **MUSD Savings Vault** through an adapter, with no lock-up, and share the yield back at close. The pot never leaves the contract, so payouts stay on time. sMUSD works on Mezo testnet and mainnet; Wave 2 wires the adapter on testnet." |
 | **1:45–2:00** | Logo, repo URL (github.com/ajocircle-dev/ajocircle), live link (ajocircle.pages.dev), "Track 2: Access & Distribution" | "AjoCircle meets ajo savers where they already are and brings them onto BTC-backed MUSD rails. Next we're adding WhatsApp reminders, naira on-ramps and pilots with real market circles. AjoCircle: your ajo, without the trust problem." |
 
 ## Cut-down rules
 - If you're over time, shorten 1:10–1:30 to one sentence ("Miss a round and your collateral covers it.").
 - Don't wait on camera for block confirmations. Cut to the confirmed state.
 - Say "MUSD" clearly at least three times, because Mezo integration is 30% of the score.
-- Be honest on screen: the yield panel only shows on a deployment with an adapter. On testnet, the banner reads
-  "Off on this deployment (sMUSD vault is mainnet-only)". Use the README table for that shot if needed.
+- Be honest on screen: the yield panel only shows on a deployment with an adapter wired in. Until Wave 2 redeploy,
+  the banner reads that the adapter is not wired yet and that sMUSD is live on testnet. Use the README table for that shot if needed.

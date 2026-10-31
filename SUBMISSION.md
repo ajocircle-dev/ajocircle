@@ -26,9 +26,9 @@ Mezo's MUSD Savings Vault. It's the same savings habit, without the treasurer yo
    can exit early by forfeiting their collateral and their turn.
 4. **MUSD use:** MUSD is the unit of account for every contribution, pot and collateral. Through an `IYieldAdapter`,
    collateral (never the pot) can be routed into the **MUSD Savings Vault (sMUSD)**, which has no lock-up. The yield is
-   shared back to members pro rata at close. On Mezo testnet the circle runs on native MUSD, because the sMUSD vault is
-   mainnet-only and the testnet StabilityPool can freeze withdrawals and lose principal. The sMUSD adapter is
-   fork-tested against the real mainnet vault.
+   shared back to members pro rata at close. The sMUSD vault is live on Mezo testnet
+   (`0x6f461c68B2c5492C0F5CCEc5a264d692aA7A8e16`) and mainnet. Wave 1 shipped without the adapter wired; Wave 2
+   wires it on testnet. The adapter is fork-tested against the real testnet vault.
 
 **Target group**
 Nigerian (and wider African) informal savers who already run ajo/esusu/chama groups: market traders, church and
@@ -36,16 +36,16 @@ alumni groups, office colleagues and diaspora families. Mostly mobile-first, oft
 dollar-denominated savings.
 
 **Tech stack**
-Solidity 0.8.24, Foundry and OpenZeppelin 5 (SafeERC20, ReentrancyGuard). 32 tests (unit, fuzz, yield accounting)
-plus an opt-in mainnet-fork test. Next.js 15, React 19, wagmi 2 and viem 2 (TypeScript). Mezo testnet (chain 31611),
-MUSD `0x118917a40FAF1CD7a13dB0Ef56C86De7973Ac503`. MUSD Savings Vault adapter for Mezo mainnet
-(`0xb4D498029af77680cD1eF828b967f010d06C51CC`).
+Solidity 0.8.24, Foundry and OpenZeppelin 5 (SafeERC20, ReentrancyGuard). Unit, fuzz and yield accounting tests,
+plus opt-in forks against the real Mezo testnet (and optional mainnet) sMUSD vault. Next.js 15, React 19, wagmi 2
+and viem 2 (TypeScript). Mezo testnet (chain 31611), MUSD `0x118917a40FAF1CD7a13dB0Ef56C86De7973Ac503`.
+sMUSD testnet vault `0x6f461c68B2c5492C0F5CCEc5a264d692aA7A8e16`.
 
 **Track**
 Track 2: Access and Distribution for MUSD/MEZO
 
 **Chain**
-Mezo (testnet for Wave 1; mainnet with sMUSD yield planned for Wave 2)
+Mezo (testnet for Wave 1/2; sMUSD yield on testnet for Wave 2)
 
 **Project status**
 Working MVP. The contracts are complete and tested, and the web app covers create, invite, join, contribute,
@@ -56,8 +56,8 @@ Live on Mezo testnet: contract [`0x94A5014b54bF748660AC0D953De67416fe34ea2C`](ht
 Testnet MVP (demo-ready). Unaudited, and not for real funds yet.
 
 **Next 3 milestones**
-1. **Wave 2 (Nov 2–15):** WhatsApp/Telegram bot for payment reminders, "who's paid" status and invite links. Mezo
-   mainnet deploy with sMUSD collateral yield switched on.
+1. **Wave 2 (Nov 2–15):** wire sMUSD collateral yield on Mezo testnet, Get MUSD / sustainability copy, then
+   WhatsApp/Telegram reminders. Mainnet only with the user's explicit go-ahead.
 2. **December pilot:** 5 real ajo circles in Lagos (about 50 members), with naira ↔ MUSD on/off-ramp partners for
    onboarding.
 3. **Q1 2027:** onchain good-payer reputation from repayment history, VRF-based payout order, larger circles and a

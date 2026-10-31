@@ -41,49 +41,39 @@ AjoCircle puts the circle in a smart contract and denominates it in a stablecoin
 - **When.** All collateral goes into the adapter at `start`. It is pulled back in the same transaction whenever it
   is needed: slashed at `settleRound`, forfeited at `exitCircle`, or returned at close.
 - **Who gets the yield.** Yield is attributed to circles pro rata to routed principal over time (MasterChef-style
-  index, and harvest happens before every change in principal). At close it is credited to `claimable` pro rata
-  to each member's remaining collateral. A defaulter whose collateral was slashed earns less. An exited member
-  earns nothing. If nobody has collateral left, the yield is split equally among the members who didn't exit.
-- **Optional per deployment.** `new AjoCircle(adapter)`. `address(0)` means plain MUSD/USDC rails, used for Arc
-  and for Mezo testnet. Only circles that use the adapter's asset *and* require collateral are routed.
+  index). Harvest runs before and after every unroute, so yield that Mezo's vault auto-claims inside `withdraw`
+  is credited to the closing circle instead of being stranded on the adapter. At close it is credited to
+  `claimable` pro rata to each member's remaining collateral. A defaulter whose collateral was slashed earns less.
+  An exited member earns nothing. If nobody has collateral left, the yield is split equally among the members who
+  didn't exit.
+- **Optional per deployment.** `new AjoCircle(adapter)`. `address(0)` means plain MUSD/USDC rails (used for Arc).
+  Only circles that use the adapter's asset *and* require collateral are routed.
 - **Adapter contract** ([`IYieldAdapter`](contracts/src/yield/IYieldAdapter.sol)): single owner (bound once by the
   AjoCircle constructor), principal-protected, instant `withdraw`, and yield paid in the asset. AjoCircle checks
   balance deltas and reverts on any shortfall.
 
 | Adapter | Source | Network | Status |
 | --- | --- | --- | --- |
-| `MUSDSavingsRateAdapter` | MUSD Savings Vault / sMUSD `0xb4D498029af77680cD1eF828b967f010d06C51CC` (impl `MUSDSavingsRate` `0xb33c3f97…9e87`), no withdrawal fee, 0h time-lock | Mezo **mainnet** 31612 | Unit-tested against a mock with the same ABI, plus a **local fork test against the real vault** (`test/fork/`) |
+| `MUSDSavingsRateAdapter` | MUSD Savings Vault / sMUSD testnet `0x6f461c68B2c5492C0F5CCEc5a264d692aA7A8e16` (impl `0x92d12f0a…d98c`); mainnet `0xb4D498029af77680cD1eF828b967f010d06C51CC` | Mezo testnet 31611 and mainnet 31612 | Unit-tested against a mock with the same ABI (including auto-claim on withdraw), plus **local fork tests** against the real testnet vault (`MEZO_TESTNET_RPC=… forge test --match-path 'test/fork/*'`) |
 | `MockYieldAdapter` | holds the token; "yield" is whatever gets sent to it | any | tests / local demo |
 
-### Why Mezo testnet ships without yield
+### Wave 2: sMUSD on Mezo testnet
 
-Checked on 2026-10-24 with `eth_call` against `https://rpc.test.mezo.org` (chain 31611):
+Checked on 2026-10-31 against `https://rpc.test.mezo.org`:
 
-1. **The MUSD Savings Vault isn't on testnet.** `cast codesize 0xb4D4…51CC` on testnet returns `0`. The same goes
-   for the Ditto MUSD vault `0x9171…14F8`. No `MUSDSavingsRate` deployment is published for testnet in
-   `mezo-org/musd` (only `matsnet/` core contracts), `mezo-org/tigris` (`deployments/testnet/` has the DEX and
-   gauges only) or the docs.
-2. **The only callable MUSD sink on testnet is the StabilityPool**, `0x1CCA7E410eE41739792eA0A24e00349Dd247680e`
-   (from `musd/solidity/artifacts/deployments/matsnet/StabilityPool.json`). `musd()` returns testnet MUSD and
-   `getTotalMUSDDeposits()` returns ≈86.23M. But it isn't a safe home for ajo money:
-   - **Principal shrinks.** Liquidations burn depositors' MUSD. The protocol (PCV `0x4dDD…80Af`) deposited 100M,
-     and `getCompoundedMUSDDeposit` now reads 86.23M, which is **−13.8%**.
-   - **Withdrawals can be frozen.** `eth_call withdrawFromSP(1)` from the PCV reverts with *"StabilityPool:
-     Cannot withdraw while there are troves with ICR < MCR"*. The lowest trove is at 109.1% ICR against a 110% MCR.
-   - **The yield is BTC, not MUSD.** Liquidation gains are paid in collateral.
+1. **sMUSD is live on testnet** at `0x6f461c68B2c5492C0F5CCEc5a264d692aA7A8e16` (`name()` = "MUSD Savings Rate",
+   `symbol()` = "sMUSD", `musdToken()` = testnet MUSD `0x1189…c503`). It is a TransparentUpgradeableProxy; the
+   implementation matches the mainnet `MUSDSavingsRate` surface (`deposit` / `withdraw` / `claimYield` /
+   `claimableYield`). `withdraw` auto-claims yield to the caller before returning principal.
+2. **StabilityPool is still not used.** It can shrink principal in liquidations and freeze withdrawals. AjoCircle
+   only wraps the Savings Vault.
+3. The live Wave 1 app still points at AjoCircle v2 with `adapter = address(0)`. Wave 2 redeploy (Deployer) wires
+   `SMUSD_VAULT=0x6f461c68B2c5492C0F5CCEc5a264d692aA7A8e16`. See [`docs/WAVE2_HANDOFF.md`](docs/WAVE2_HANDOFF.md).
 
-   Each of these breaks the "payouts on time, principal intact" promise, so we don't route anything there.
-3. On testnet, AjoCircle is therefore deployed with `adapter = address(0)` (native MUSD). The interface, the
-   adapters, the UI and the tests are all in place. Turning on yield for a mainnet deployment is one env var:
-   `SMUSD_VAULT=0xb4D4…51CC`.
-
-Re-check the testnet facts:
 ```bash
-cast codesize 0xb4D498029af77680cD1eF828b967f010d06C51CC --rpc-url https://rpc.test.mezo.org        # 0
-cast call 0x1CCA7E410eE41739792eA0A24e00349Dd247680e "getCompoundedMUSDDeposit(address)(uint256)" \
-  0x4dDD70f4C603b6089c07875Be02fEdFD626b80Af --rpc-url https://rpc.test.mezo.org
-cast call 0x1CCA7E410eE41739792eA0A24e00349Dd247680e "withdrawFromSP(uint256)" 1 \
-  --from 0x4dDD70f4C603b6089c07875Be02fEdFD626b80Af --rpc-url https://rpc.test.mezo.org   # reverts (ICR < MCR)
+cast call 0x6f461c68B2c5492C0F5CCEc5a264d692aA7A8e16 "musdToken()(address)" --rpc-url https://rpc.test.mezo.org
+cast call 0x6f461c68B2c5492C0F5CCEc5a264d692aA7A8e16 "name()(string)" --rpc-url https://rpc.test.mezo.org
+MEZO_TESTNET_RPC=https://rpc.test.mezo.org forge test --match-path 'test/fork/*' -vv
 ```
 
 ## How a circle works
@@ -103,7 +93,7 @@ are handled as a defaulter.
 **Known limitations (hackathon scope):** the yield adapter is trusted at deploy time. If it stops returning
 principal instantly, `settleRound`, `exitCircle` and the final round revert until it does (pots already paid are
 unaffected), so only wrap principal-protected, instant-withdraw sources. Yield accounting rounds down, so a few wei
-can stay in the contract.  the shuffled order uses onchain pseudo-randomness, which block producers
+can stay in the contract. The shuffled order uses onchain pseudo-randomness, which block producers
 can influence (use a VRF in production). Collateral covers one missed payment, so a member with no collateral
 left only makes that round's pot smaller. Fee-on-transfer and rebasing tokens are not supported. There is a
 cap of 50 members per circle so loops stay bounded. The contracts are **unaudited**.
@@ -118,7 +108,7 @@ ajocircle/
 │   ├── src/yield/             IYieldAdapter, MUSDSavingsRateAdapter (sMUSD), MockYieldAdapter
 │   ├── test/AjoCircle.t.sol   happy path, missed payment, early exit, edge cases, fuzz (no adapter)
 │   ├── test/AjoCircleYield.t.sol  routing, accrual, pro-rata distribution, zero-yield, solvency fuzz
-│   ├── test/fork/             opt-in fork test against the real Mezo mainnet sMUSD vault
+│   ├── test/fork/             opt-in fork tests against real Mezo testnet (and optional mainnet) sMUSD vaults
 │   └── script/Deploy.s.sol    env-driven deploy script (no keys in code), optional adapter
 └── web/                       Next.js 15 (App Router) + wagmi 2 + viem 2, TypeScript
     ├── src/lib/chains.ts      Mezo testnet / Mezo / Arc / Arc testnet / anvil definitions
@@ -155,8 +145,10 @@ git submodule update --init --recursive
 cd contracts
 forge build
 forge test -vv
-# optional: run the adapter against the real Mezo mainnet sMUSD vault in a LOCAL fork (nothing is sent)
-MEZO_MAINNET_RPC=https://mainnet.mezo.public.validationcloud.io forge test --match-path 'test/fork/*' -vv
+# optional: run the adapter against the real Mezo testnet sMUSD vault in a LOCAL fork (nothing is sent)
+MEZO_TESTNET_RPC=https://rpc.test.mezo.org forge test --match-path 'test/fork/*' -vv
+# optional mainnet fork:
+# MEZO_MAINNET_RPC=https://mainnet.mezo.public.validationcloud.io forge test --match-path 'test/fork/*' -vv
 ```
 
 ### Local end-to-end (anvil)
@@ -179,12 +171,12 @@ cast wallet import deployer --interactive         # store the key in Foundry's e
 TOKEN_ADDRESS=0x118917a40FAF1CD7a13dB0Ef56C86De7973Ac503 \
   forge script script/Deploy.s.sol --rpc-url mezo_testnet --account deployer --broadcast
 ```
-This deploys with no yield adapter, which is the intended setup for testnet (see above). For a Mezo **mainnet**
-deployment with sMUSD yield, add `SMUSD_VAULT=0xb4D498029af77680cD1eF828b967f010d06C51CC`, use
-`--rpc-url https://mainnet.mezo.public.validationcloud.io` and set `NEXT_PUBLIC_CHAIN=mezo`.
-Gas on Mezo is paid in BTC, which you can get from the [faucet](https://faucet.test.mezo.org/). To get test MUSD,
-borrow it against test BTC at [testnet.mezo.org](https://testnet.mezo.org). Note that borrowing has a
-**minimum debt of 2,000 MUSD**.
+Wave 1 shipped with no yield adapter. For Wave 2 on Mezo **testnet** with sMUSD yield, add
+`SMUSD_VAULT=0x6f461c68B2c5492C0F5CCEc5a264d692aA7A8e16` (see [`docs/WAVE2_HANDOFF.md`](docs/WAVE2_HANDOFF.md)).
+For Mezo **mainnet**, use `SMUSD_VAULT=0xb4D498029af77680cD1eF828b967f010d06C51CC` and
+`--rpc-url https://mainnet.mezo.public.validationcloud.io` with `NEXT_PUBLIC_CHAIN=mezo`.
+Gas on Mezo is paid in BTC ([testnet faucet](https://faucet.test.mezo.org/)). Ways to get MUSD without a large trove
+are listed under [Get MUSD](#get-musd) below.
 
 ### Frontend
 ```bash
@@ -218,6 +210,29 @@ For a GitHub Pages project site, also set `NEXT_PUBLIC_BASE_PATH=/ajocircle`.
 Mezo testnet deploy tx: [0xdef687…5a06](https://explorer.test.mezo.org/tx/0xdef687fbcbb0fdc8c46378e5249d5f88a034a88548300e2b8f15bcb317ce5a06). Full record and demo-wallet transactions: [`deployments/mezo-testnet.md`](deployments/mezo-testnet.md).
 
 Pitch deck: [`docs/AjoCircle-Mezo-deck.pdf`](docs/AjoCircle-Mezo-deck.pdf)
+
+## Get MUSD
+
+Savers do not need to open a ~2,000 MUSD trove. Verified options:
+
+| Option | What it is | Link |
+| --- | --- | --- |
+| Banxa on-ramp | Buy MUSD with card / Apple Pay / Google Pay / bank transfer inside Mezo Borrow | [Mezo Banxa post](https://mezo.org/blog/buy-musd-directly-with-your-card-banxa-is-live-on-mezo/) · [mezo.org](https://mezo.org) |
+| Mezo Swap | Swap BTC / USDC / USDT for MUSD onchain | [Swap feature](https://mezo.org/feature/swap) · [Swap docs](https://mezo.org/docs/users/mezo-earn/pools/mezo-swap/) |
+| MUSD bridge | Bridge MUSD between Mezo, Ethereum and Base (Wormhole NTT; Portal UI) | [Bridge docs](https://mezo.org/docs/users/musd/musd-bridge/) · [Portal](https://portalbridge.com) · [announcement](https://mezo.org/blog/mezo-and-musd-go-multichain-with-wormhole/) |
+| Borrow vs BTC | Still available; protocol minimum debt is about 2,000 MUSD | [MUSD overview](https://mezo.org/docs/users/musd/) |
+| Testnet | Free test BTC from the faucet, then borrow test MUSD | [faucet](https://faucet.test.mezo.org/) · [testnet.mezo.org](https://testnet.mezo.org) |
+
+The in-app **Get MUSD** section on the home page links the same sources.
+
+## Who pays and how it sustains itself
+
+- **Protocol fee:** 0%. AjoCircle takes no cut of contributions, collateral or sMUSD yield.
+- **Gas:** each user (or anyone calling `settleRound`) pays their own Mezo gas in BTC.
+- **Yield:** when an adapter is wired, collateral yield from Mezo's sMUSD vault is shared among that circle's members. AjoCircle takes no performance fee.
+- **Sustainability today:** hackathon and grant work (Mezo Wave 1/2), not user fees. Any future fee will be disclosed in the UI and docs before a deploy that turns it on.
+
+Circles listed in the app are read live from the contract. Outside users are still needed for circles run by people outside the team; the app already has [Start your own circle](https://ajocircle.pages.dev/create/).
 
 ## Team
 

@@ -43,15 +43,14 @@ the savings hold dollar value between rounds."
 - MUSD is the unit for every contribution, pot and collateral deposit, so each circle creates recurring MUSD demand and transfers.
 - Idle collateral is routed through `IYieldAdapter` to the **MUSD Savings Vault (sMUSD)**, and yield is shared back to members at close.
 - Safe by design: the pot is never routed, so payouts are never delayed, and a principal shortfall reverts.
-- **Testnet: native MUSD; mainnet: sMUSD yield adapter (fork-tested)**
+- **sMUSD integration works on Mezo testnet** (vault `0x6f461c…e16`, fork-tested); Wave 2 wires the adapter
 
 **Visual:** Members → AjoCircle (pot stays here) → collateral → MUSDSavingsRateAdapter → MUSD Savings Vault
-(`0xb4D4…51CC`) → yield back to members. Put the MUSD and Mezo logos on the arrows.
+(testnet `0x6f461c…e16`) → yield back to members. Put the MUSD and Mezo logos on the arrows.
 
 **Speaker notes:** "Every circle is MUSD distribution. Real people get MUSD and use it every week. Collateral would
-otherwise sit idle, so on mainnet it earns in the MUSD Savings Vault and that yield goes back to the members.
-To be clear about where this stands: the vault exists only on mainnet, so the testnet build runs native MUSD with
-no yield. The mainnet adapter is tested against a fork of the real sMUSD vault. We chose the Savings Vault over the
+otherwise sit idle, so it earns in Mezo's MUSD Savings Vault (sMUSD) and that yield goes back to the members.
+sMUSD is live on Mezo testnet and mainnet; Wave 2 wires the adapter on testnet. We chose the Savings Vault over the
 Stability Pool because a pool's principal can shrink in liquidations, and ajo money can't take that risk."
 
 ## Slide 4: Demo
@@ -86,15 +85,15 @@ across Sub-Saharan Africa, where it's called chama or tontine, so the model trav
 
 ## Slide 6: Roadmap: next 3 milestones
 **On slide**
-1. **Wave 2 (Nov 2–15):** a WhatsApp/Telegram bot for reminders, "who's paid" and invite links, plus a mainnet
-   deploy with the sMUSD yield switched on.
+1. **Wave 2 (Nov 2–15):** wire sMUSD yield on Mezo testnet, Get MUSD paths without a large trove, then a
+   WhatsApp/Telegram bot for reminders. Mainnet only with the user's explicit go-ahead.
 2. **Pilot (Dec):** 5 real ajo circles in Lagos (target of about 50 members) with naira ↔ MUSD on/off-ramp partners.
 3. **Q1 2027:** a good-payer reputation score from repayment history, larger circles, VRF payout order, and an audit.
 
 **Visual:** a 3-node timeline with a bot icon, a people icon and a shield icon.
 
-**Speaker notes:** "Next, we'll meet users where they already coordinate, in WhatsApp, and switch on real yield on
-mainnet. December is about real circles with real people in Lagos. The pilot numbers are targets, not traction. After
+**Speaker notes:** "Next, we wire sMUSD yield on testnet and meet users where they already coordinate, in WhatsApp.
+December is about real circles with real people in Lagos. The pilot numbers are targets, not traction. After
 that, repayment history becomes a reputation score, which opens the door to credit later."
 
 ## Slide 7: Team (placeholder, fill in when team info arrives)
