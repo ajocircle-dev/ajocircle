@@ -178,3 +178,16 @@ Page: https://ajocircle.pages.dev/circle/?id=5
 | 8 | start(5) | mezo-demo-1 | [0xd1fb44d8…4ff2](https://explorer.test.mezo.org/tx/0xd1fb44d8e8002c1c44b00266b367205785561a74a40dd9b1b246d5e82fb44ff2) | 16337627 |
 
 Balances after seeding (Oct 24 2026 ~11:25 WAT), all allowances to AjoCircle 0: demo-1 460 MUSD / 0.0019999995 BTC; demo-2 480 MUSD / 0.0019999995 BTC; demo-3 450 MUSD / 0.0019999996 BTC; deployer 195 MUSD / ~0.0047183 BTC. AjoCircle holds 175 MUSD (circle 1: 30 collateral; circle 3: 45 collateral + 30 pot; circle 4: 40 collateral; circle 5: 30 collateral). No gas top-ups were needed.
+
+
+## AjoCircle Wave 2 / v3 (current for Wave 2 work)
+
+See full record: [mezo-testnet-wave2.md](./mezo-testnet-wave2.md)
+
+- Commit: `749384f` (local)
+- MUSDSavingsRateAdapter: `0x02c9711eaD8b6d101A542eEC8DA2b41Cbe7eD6f6` (vault `0x6f461c68B2c5492C0F5CCEc5a264d692aA7A8e16`)
+- AjoCircle: `0x463203F3Cd12653bEa11FfCd22512B11e2a91835` (deploy block 16482570)
+- Broadcast: deployments/mezo-testnet-v3.json
+- Verification: Sourcify exact_match for both
+- Web env: NEXT_PUBLIC_CHAIN=mezoTestnet, NEXT_PUBLIC_AJO_ADDRESS=0x463203F3Cd12653bEa11FfCd22512B11e2a91835, NEXT_PUBLIC_DEPLOY_BLOCK=16482570
+- Live Pages still points at v2 until user go-ahead to redeploy
