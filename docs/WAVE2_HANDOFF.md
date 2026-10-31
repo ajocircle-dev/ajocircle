@@ -1,6 +1,9 @@
 # Wave 2 handoff for Deployer (Mezo testnet only)
 
-Builder finished the Wave 2 code locally. **Do not push, do not redeploy Pages, and do not submit** until the user says go. This file is the deploy brief.
+STATUS (2026-10-31): Deployer finished v3 on testnet (`0x4632…1835` / adapter `0x02c9…D6f6`, block 16482570). Builder wired the web app. Push + Pages redeploy follow user go-ahead. Still do not submit Wave 2 / public posts without the user.
+
+Original deploy brief below.
+
 
 Network: Mezo testnet, chain ID 31611, RPC `https://rpc.test.mezo.org`, explorer `https://explorer.test.mezo.org`.
 Zero spend beyond free testnet gas. Never call `settleRound` on seeded demo circles on the current v2 contract.
@@ -82,8 +85,8 @@ MEZO_TESTNET_RPC=https://rpc.test.mezo.org forge test --match-path 'test/fork/*'
 ```bash
 cd web
 NEXT_PUBLIC_CHAIN=mezoTestnet \
-NEXT_PUBLIC_AJO_ADDRESS=<NEW_AJO_ADDRESS> \
-NEXT_PUBLIC_DEPLOY_BLOCK=<deploy_block> \
+NEXT_PUBLIC_AJO_ADDRESS=0x463203F3Cd12653bEa11FfCd22512B11e2a91835 \
+NEXT_PUBLIC_DEPLOY_BLOCK=16482570 \
 npm run build
 # then, only with user OK:
 # npx -p node@22 -p wrangler wrangler pages deploy out --project-name ajocircle --branch main

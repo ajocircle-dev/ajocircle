@@ -14,7 +14,7 @@ export const mezoTestnet = defineChain({
   testnet: true,
 });
 
-// Mezo mainnet: only needed for the sMUSD-yield deployment (the MUSD Savings Vault is mainnet-only).
+// Mezo mainnet: production MUSD Savings Vault also lives here (testnet vault is separate).
 export const mezo = defineChain({
   id: 31612,
   name: "Mezo",

@@ -2,7 +2,7 @@
 
 > Rotating savings with stablecoins. The smart contract keeps the books, so nobody has to trust the treasurer.
 
-**Live demo: [ajocircle.pages.dev](https://ajocircle.pages.dev)** (Mezo testnet, chain 31611; contract `0x94A5014b54bF748660AC0D953De67416fe34ea2C`)
+**Live demo: [ajocircle.pages.dev](https://ajocircle.pages.dev)** (Mezo testnet, chain 31611; Wave 2 contract `0x463203F3Cd12653bEa11FfCd22512B11e2a91835`, sMUSD adapter `0x02c9711eaD8b6d101A542eEC8DA2b41Cbe7eD6f6`)
 
 ## Problem
 
@@ -67,8 +67,30 @@ Checked on 2026-10-31 against `https://rpc.test.mezo.org`:
    `claimableYield`). `withdraw` auto-claims yield to the caller before returning principal.
 2. **StabilityPool is still not used.** It can shrink principal in liquidations and freeze withdrawals. AjoCircle
    only wraps the Savings Vault.
-3. The live Wave 1 app still points at AjoCircle v2 with `adapter = address(0)`. Wave 2 redeploy (Deployer) wires
-   `SMUSD_VAULT=0x6f461c68B2c5492C0F5CCEc5a264d692aA7A8e16`. See [`docs/WAVE2_HANDOFF.md`](docs/WAVE2_HANDOFF.md).
+3. **Live Wave 2 deploy (v3):** AjoCircle `0x463203F3Cd12653bEa11FfCd22512B11e2a91835` with
+   `MUSDSavingsRateAdapter` `0x02c9711eaD8b6d101A542eEC8DA2b41Cbe7eD6f6` (vault above), deploy block `16482570`.
+   Record: [`deployments/mezo-testnet-wave2.md`](deployments/mezo-testnet-wave2.md). Prior v2 (no adapter) remains
+   at `0x94A5014b54bF748660AC0D953De67416fe34ea2C` for historical demo circles; do not call `settleRound` on them.
+
+#### How sMUSD yield actually accrues (honest)
+
+Mezo product docs say vault yield is fee revenue distributed on a weekly cadence and shows up in the sMUSD
+redemption value. On-chain the Savings Rate vault uses a separate `yieldIndex` / `claimableYield` ledger:
+
+- Anyone (or protocol ops) can push MUSD in via `receiveProtocolYield(amount)` or
+  `receiveYieldFromStrategy()`. Each push raises `yieldIndex`. Depositors then earn
+  `balance * (yieldIndex - userYieldIndex) / 1e18` as claimable MUSD. `withdraw` auto-claims that before
+  returning principal.
+- There is **no continuous per-block interest**. A deposit that sits between two index bumps earns zero until
+  the next bump after it deposited.
+- Observed on testnet (blocks ~16472692–16482691): multiple `ProtocolYieldReceived` events of about 1.02 MUSD
+  each, roughly every ~870 blocks. `strategy.claimYield()` returned 0 and vault `pendingYield()` was 0 at
+  check time. Vault `pcv` is `address(0)` on this testnet deployment.
+- The Wave 2 smoke circle (create to close in ~3 minutes, blocks 16482585–16482639) therefore correctly showed
+  **0 yield**: it deposited after the latest index bump and closed before the next one. Longer-lived collateral
+  that spans a protocol push will show non-zero `claimableYield` / AjoCircle yield.
+- Unit tests cover non-zero yield by having the mock vault auto-claim on withdraw; fork tests deposit/withdraw
+  against the real vault without requiring a live yield bump.
 
 ```bash
 cast call 0x6f461c68B2c5492C0F5CCEc5a264d692aA7A8e16 "musdToken()(address)" --rpc-url https://rpc.test.mezo.org
@@ -193,8 +215,8 @@ Circle pages are resolved on the client, so the route is `/circle/?id=N` (ids st
 ```bash
 cd web
 NEXT_PUBLIC_CHAIN=mezoTestnet \
-NEXT_PUBLIC_AJO_ADDRESS=0x94A5014b54bF748660AC0D953De67416fe34ea2C \
-NEXT_PUBLIC_DEPLOY_BLOCK=16336238 \
+NEXT_PUBLIC_AJO_ADDRESS=0x463203F3Cd12653bEa11FfCd22512B11e2a91835 \
+NEXT_PUBLIC_DEPLOY_BLOCK=16482570 \
 npm run build            # writes the static site to web/out
 npx -p node@22 -p wrangler wrangler pages deploy out --project-name ajocircle --branch main
 ```
@@ -204,10 +226,11 @@ For a GitHub Pages project site, also set `NEXT_PUBLIC_BASE_PATH=/ajocircle`.
 
 | Network | AjoCircle | Deploy block | Explorer | Live app |
 | --- | --- | --- | --- | --- |
-| Mezo testnet (31611), no adapter | `0x94A5014b54bF748660AC0D953De67416fe34ea2C` | `16336238` | [explorer](https://explorer.test.mezo.org/address/0x94A5014b54bF748660AC0D953De67416fe34ea2C) · [Sourcify](https://repo.sourcify.dev/31611/0x94A5014b54bF748660AC0D953De67416fe34ea2C) | [ajocircle.pages.dev](https://ajocircle.pages.dev) |
+| Mezo testnet (31611), Wave 2 sMUSD adapter | `0x463203F3Cd12653bEa11FfCd22512B11e2a91835` | `16482570` | [explorer](https://explorer.test.mezo.org/address/0x463203F3Cd12653bEa11FfCd22512B11e2a91835) · [Sourcify](https://repo.sourcify.dev/31611/0x463203F3Cd12653bEa11FfCd22512B11e2a91835) | [ajocircle.pages.dev](https://ajocircle.pages.dev) |
+| Mezo testnet (31611), Wave 1 no adapter (historical) | `0x94A5014b54bF748660AC0D953De67416fe34ea2C` | `16336238` | [explorer](https://explorer.test.mezo.org/address/0x94A5014b54bF748660AC0D953De67416fe34ea2C) · [Sourcify](https://repo.sourcify.dev/31611/0x94A5014b54bF748660AC0D953De67416fe34ea2C) | (retired from live app) |
 | Arc mainnet (5042) | `TBD` | `TBD` | https://explorer.arc.io/address/TBD | `TBD` |
 
-Mezo testnet deploy tx: [0xdef687…5a06](https://explorer.test.mezo.org/tx/0xdef687fbcbb0fdc8c46378e5249d5f88a034a88548300e2b8f15bcb317ce5a06). Full record and demo-wallet transactions: [`deployments/mezo-testnet.md`](deployments/mezo-testnet.md).
+Wave 2 adapter: `0x02c9711eaD8b6d101A542eEC8DA2b41Cbe7eD6f6`. Deploy tx: [0xf08a41…d88b](https://explorer.test.mezo.org/tx/0xf08a412b6eebbafa8c01ba8e17657da002f01d03a9b8f8c6cf40a49b533dd88b). Full record: [`deployments/mezo-testnet-wave2.md`](deployments/mezo-testnet-wave2.md). Wave 1 notes: [`deployments/mezo-testnet.md`](deployments/mezo-testnet.md).
 
 Pitch deck: [`docs/AjoCircle-Mezo-deck.pdf`](docs/AjoCircle-Mezo-deck.pdf)
 

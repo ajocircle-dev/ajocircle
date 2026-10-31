@@ -44,7 +44,7 @@ ajo.yieldAdapter()     = 0x02c9711eaD8b6d101A542eEC8DA2b41Cbe7eD6f6
 ajo.yieldAsset()       = 0x118917a40FAF1CD7a13dB0Ef56C86De7973Ac503
 ```
 
-## Web env values (Pages redeploy needs user go-ahead)
+## Web env values (wired into live app)
 
 ```
 NEXT_PUBLIC_CHAIN=mezoTestnet
@@ -109,3 +109,25 @@ Final member MUSD balances (Africa/Lagos ~10:48): deployer 195 MUSD, demo-1 460 
 2. Some `cast send --json` receipts briefly returned null from the RPC; all txs still landed (recovered by scanning blocks). No resends of the same action were needed beyond the successful on-chain receipts listed above.
 3. CREATE_DEMO_CIRCLE left unset (per handoff). Only the manual e2e circle above was created on the new contract.
 4. Not pushed. Not Pages-redeployed. No Wave 2 submission or public posts.
+
+
+## How sMUSD yield accrues on testnet (Builder research, 2026-10-31)
+
+Vault: `0x6f461c68B2c5492C0F5CCEc5a264d692aA7A8e16`.
+
+- Accrual is index-based (`yieldIndex` / `claimableYield`), not continuous per-block interest.
+- Index bumps when MUSD is pushed via `receiveProtocolYield` or `receiveYieldFromStrategy` (permissionless entry points; strategy currently returns 0 from `claimYield()`).
+- Observed in the last ~10k blocks: several `ProtocolYieldReceived` events of ~1.02 MUSD, spaced ~870 blocks apart. `pendingYield()` was 0; vault `pcv` is `address(0)`.
+- Mezo user docs describe weekly fee distribution into the vault; that matches discrete index bumps, not a drip rate.
+- Smoke circle 1 closed with 0 yield because it was open only a few minutes between bumps. That is expected, not a bug in AjoCircle or the adapter.
+- After close, adapter `principal()`, `pendingYield()`, vault `balanceOf(adapter)`, and vault `claimableYield(adapter)` were all 0 (no stranded funds).
+
+## Web wiring
+
+Live Pages env:
+
+```
+NEXT_PUBLIC_CHAIN=mezoTestnet
+NEXT_PUBLIC_AJO_ADDRESS=0x463203F3Cd12653bEa11FfCd22512B11e2a91835
+NEXT_PUBLIC_DEPLOY_BLOCK=16482570
+```

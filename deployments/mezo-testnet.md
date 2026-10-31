@@ -6,7 +6,11 @@ TESTNET ONLY. No secrets in this file. Keystores live in ~/.foundry/keystores, p
 Token: MUSD (testnet) `0x118917a40FAF1CD7a13dB0Ef56C86De7973Ac503` (18 decimals)
 Deployer: `0x7E084Cb20EBe4a3ca1353EF24c96D048AAB50146` (keystore `mezo-testnet-deployer`)
 
-## AjoCircle v2 (current, use this for the web app)
+**Current live app (Wave 2 / v3):** AjoCircle `0x463203F3Cd12653bEa11FfCd22512B11e2a91835` + adapter `0x02c9711eaD8b6d101A542eEC8DA2b41Cbe7eD6f6`, deploy block `16482570`. Full record: [`mezo-testnet-wave2.md`](mezo-testnet-wave2.md).
+
+Do NOT call `settleRound` on seeded demo circles on v1 or v2.
+
+## AjoCircle v2 (historical Wave 1; live app moved to v3)
 - Commit: `31dcaf9a725b2cfd27bbd30079afdf463653bcea` (main, 32 tests pass / 1 skipped)
 - Constructor: yield adapter = `0x0000000000000000000000000000000000000000` (no yield; YIELD_ADAPTER/SMUSD_VAULT/DEPLOY_MOCK_ADAPTER unset)
 - Address: `0x94A5014b54bF748660AC0D953De67416fe34ea2C`: https://explorer.test.mezo.org/address/0x94A5014b54bF748660AC0D953De67416fe34ea2C
@@ -15,9 +19,7 @@ Deployer: `0x7E084Cb20EBe4a3ca1353EF24c96D048AAB50146` (keystore `mezo-testnet-d
 - Broadcast: deployments/mezo-testnet-v2.json
 - Verification: Sourcify exact_match (https://repo.sourcify.dev/31611/0x94A5014b54bF748660AC0D953De67416fe34ea2C). Blockscout submission queued ("Pending in queue"); explorer verifier has verified 0 contracts in 24h (last Oct 21).
 
-Live app: https://ajocircle.pages.dev (Cloudflare Pages, static export; circle pages at https://ajocircle.pages.dev/circle/?id=N, ids start at 1)
-
-Web env: NEXT_PUBLIC_CHAIN=mezoTestnet, NEXT_PUBLIC_AJO_ADDRESS=0x94A5014b54bF748660AC0D953De67416fe34ea2C, NEXT_PUBLIC_DEPLOY_BLOCK=16336238
+Was live on https://ajocircle.pages.dev until Wave 2. Web env for v2 was: NEXT_PUBLIC_CHAIN=mezoTestnet, NEXT_PUBLIC_AJO_ADDRESS=0x94A5014b54bF748660AC0D953De67416fe34ea2C, NEXT_PUBLIC_DEPLOY_BLOCK=16336238
 
 ## AjoCircle v1 (safety net)
 - Commit: `788b7bb` (19 tests), built from a clean `git archive` copy at /workspace/ajocircle-v1
