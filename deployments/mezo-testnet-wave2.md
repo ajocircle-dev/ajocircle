@@ -234,3 +234,80 @@ Closing circle 2 received **67454618812000 wei** total (~6.745e-5 MUSD):
 
 **Local fix (not pushed, not redeployed):** `harvest` always calls `vault.claimYield()`; `pendingYield` adds the live uncheckpointed index share. No dust. Unit + testnet fork coverage added. Live app remains on the pre-fix adapter until user OK to redeploy (requires **new adapter + new AjoCircle**; `yieldAdapter` is immutable). Handoff: [`docs/WAVE2_ADAPTER_FIX_HANDOFF.md`](../docs/WAVE2_ADAPTER_FIX_HANDOFF.md).
 
+
+
+## Wave 2 v4: adapter harvest-checkpoint fix (2026-10-31)
+
+Builder commit `28e800c` made `harvest` always call `vault.claimYield()` and made `pendingYield` include the live index share. Because `yieldAdapter` is immutable, this required a fresh adapter + AjoCircle pair (old v3 circles stay on `0x02c971…` / `0x463203…`).
+
+### Deploy
+
+| Contract | Address | Tx | Block |
+|---|---|---|---|
+| MUSDSavingsRateAdapter | [0x01CAc7439F725E8EfF215E25a0444987bcf8521E](https://explorer.test.mezo.org/address/0x01CAc7439F725E8EfF215E25a0444987bcf8521E) | [0x821ac81a…d778](https://explorer.test.mezo.org/tx/0x821ac81ad342579f11fd24e8597e199d549144a9a49e82a5a2cf776cec84d778) | 16487793 |
+| AjoCircle | [0xc2B6e4Bec56F1fd129D4bCd1CB8e4271303B0dda](https://explorer.test.mezo.org/address/0xc2B6e4Bec56F1fd129D4bCd1CB8e4271303B0dda) | [0x01c1391c…e9fe](https://explorer.test.mezo.org/tx/0x01c1391ce15f382b4f64124863997e7a9a21390b6eac2efaf39c7f3b845fe9fe) | 16487793 |
+
+Vault: `0x6f461c68B2c5492C0F5CCEc5a264d692aA7A8e16`. Broadcast: `deployments/mezo-testnet-v4.json` and `contracts/broadcast/Deploy.s.sol/31611/run-1793461589620.json`. Prior v3 broadcast copies kept under `/workspace/mezo-wave2-verify/broadcast-prev/`.
+
+### Verification
+
+- Sourcify: **exact_match** for both
+  - https://repo.sourcify.dev/31611/0x01CAc7439F725E8EfF215E25a0444987bcf8521E
+  - https://repo.sourcify.dev/31611/0xc2B6e4Bec56F1fd129D4bCd1CB8e4271303B0dda
+- Blockscout API verifier: 404 HTML (same as v3). Standard JSON + constructor args saved under `/workspace/mezo-wave2-verify/fix/`.
+
+### Sanity reads
+
+- adapter.asset = MUSD `0x118917a40FAF1CD7a13dB0Ef56C86De7973Ac503`
+- adapter.owner = new AjoCircle `0xc2B6e4Bec56F1fd129D4bCd1CB8e4271303B0dda`
+- adapter.vault = sMUSD vault above
+- ajo.yieldAdapter = new adapter `0x01CAc7439F725E8EfF215E25a0444987bcf8521E`
+- ajo.yieldAsset = MUSD
+
+### Forge tests before deploy
+
+- `forge test --no-match-path 'test/fork/*'`: 35 passed
+- `MEZO_TESTNET_RPC=… forge test --match-path 'test/fork/*'`: 2 passed, 1 skipped (mainnet)
+
+### Smoke circle 1 on v4: "Wave2 Adapter Fix Smoke"
+
+Params: 10 MUSD contrib, maxMembers 2, roundLength 3600 s, collateral true, randomOrder false.
+Members: deployer, demo-1. Start block 16487840. No vault donation. No 1 wei sMUSD transfer.
+
+| # | Step | Wallet | Tx | Block |
+|---|---|---|---|---|
+| 1 | createCircle | deployer | [0x2a779b8b…2465](https://explorer.test.mezo.org/tx/0x2a779b8b593326c9f59745f316b2db303c3e976d88b14fe6ce439c1592832465) | 16487834 |
+| 2 | approve 30 MUSD | deployer | [0x610ed63d…850c](https://explorer.test.mezo.org/tx/0x610ed63d6ee1a3f83fabfc53f6d163313bb4de11561ea93f84596800d434850c) | 16487818 |
+| 3 | join(1) | deployer | [0xcd6df043…02c3](https://explorer.test.mezo.org/tx/0xcd6df0430c57f9c896107c8c7bf6fc99666c3f424b1be1a779c21ff53e1602c3) | 16487837 |
+| 4 | approve 30 MUSD | demo-1 | [0x1105ee41…84a2](https://explorer.test.mezo.org/tx/0x1105ee41e3c95c84148b3e4b83c079f025bf28efbca3caed72d4f0ea136284a2) | 16487820 |
+| 5 | join(1) | demo-1 | [0x5b982937…350c](https://explorer.test.mezo.org/tx/0x5b982937510961437a655d8b4dbacd53d937c8794b51b395cf0d20998992350c) | 16487838 |
+| 6 | start(1) (routes 20 MUSD) | deployer | [0x1941c8b2…8a67](https://explorer.test.mezo.org/tx/0x1941c8b269634dcde4c9c254417b6ba398fdc7df7aa5052472185e778fa98a67) | 16487840 |
+| 7 | contribute r0 | deployer | [0x54535283…fb79](https://explorer.test.mezo.org/tx/0x545352834a679af46a05f66c2facba50a742e133d043acb9a55cd23d56f8fb79) | 16488004 |
+| 8 | contribute r0 | demo-1 | [0x27410aeb…702c](https://explorer.test.mezo.org/tx/0x27410aebff6d96855fc5c4779db0b5836e77f04622f7c7e5675e2cfb3f7a702c) | 16488006 |
+| 9 | contribute r1 | deployer | [0x28e995a4…b1fd](https://explorer.test.mezo.org/tx/0x28e995a401dd091c43d2f5ee9dc3079f84854181d21fed5ee7870efa1d01b1fd) | 16488008 |
+| 10 | contribute r1 (close) | demo-1 | [0x1bd2c770…ac96](https://explorer.test.mezo.org/tx/0x1bd2c77089e1fd9be24d3b5d9af0c8aa610e31840b918ca3d8265b075809ac96) | 16488009 |
+| 11 | claimPayout | deployer | [0x2339806b…cb71](https://explorer.test.mezo.org/tx/0x2339806bef53905aeeff72efcbf54a24d73a634669751d546fdaec9e7850cb71) | 16488018 |
+| 12 | claimPayout | demo-1 | [0x3c64dc0d…a267](https://explorer.test.mezo.org/tx/0x3c64dc0d9e8a1d2250d08d004d6974979b721cf29eeb26da1d48b71fe800a267) | 16488020 |
+
+Natural `ProtocolYieldReceived` after start (no donation):
+
+- tx [0x9cffbac5…fe7b](https://explorer.test.mezo.org/tx/0x9cffbac558e596d783e0f80b078921398e3a4461aeeaed5e23a68e3991b7fe7b) @ block **16487971**, amount ~1.020 MUSD
+
+Index yield picked up **without** dust transfer and **without** donation:
+
+- After the push, `vault.claimableYield(adapter)` storage still 0 (expected until checkpoint)
+- `adapter.pendingYield()` = **22780314561120** (live index share)
+- `ajo.getYield(1)` earned = **22780314561120**
+- eth_call `vault.claimYield()` as adapter returned **22780314561120** (harvest path would pull this)
+
+On close: total yield to circle 22780314561120 wei; `yieldEarned` 11390157280560 each; status Completed; adapter principal 0; vault.balanceOf(adapter) 0; no stranded funds. Members claimed collateral + yield share.
+
+### Web env (not Pages-redeployed; needs separate user OK)
+
+```
+NEXT_PUBLIC_CHAIN=mezoTestnet
+NEXT_PUBLIC_AJO_ADDRESS=0xc2B6e4Bec56F1fd129D4bCd1CB8e4271303B0dda
+NEXT_PUBLIC_DEPLOY_BLOCK=16487793
+```
+
+Old v1/v2 demos and v3 circles 1-2 were not touched. Not pushed.
