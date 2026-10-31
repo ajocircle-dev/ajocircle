@@ -8,7 +8,7 @@ a savings habit that millions of Nigerians already have.
 ## Before you record
 - Use the live app at **https://ajocircle.pages.dev** (Mezo testnet, `NEXT_PUBLIC_CHAIN=mezoTestnet`). Circle pages use the form `https://ajocircle.pages.dev/circle/?id=N`. There are three wallets (A = creator/Ada, B = Bayo, C = Chi), each
   with test BTC for gas and enough test MUSD. Borrowing test MUSD has a 2,000 MUSD minimum.
-- Pre-create **"Yaba Market Ajo"**: 10 MUSD, 3 members, 10-minute rounds, collateral on. A and B have already joined. On the current v2 contract no circles exist yet, so the first one you create is id 1 (https://ajocircle.pages.dev/circle/?id=1).
+- Pre-create **"Yaba Market Ajo"**: 10 MUSD, 3 members, 10-minute rounds, collateral on. A and B have already joined. Live app is Wave 2 v4 (`0xc2B6e4Bec56F1fd129D4bCd1CB8e4271303B0dda`); circle 1 there is the closed smoke "Wave2 Adapter Fix Smoke", so a fresh demo circle will be id 2 (https://ajocircle.pages.dev/circle/?id=2).
 - Have a **second, completed circle** ready so the closing and claim screens show without waiting.
 - Explorer tab open on the AjoCircle contract. Keep one shot of `README.md#musd-yield` or the yield panel ready.
 
@@ -28,5 +28,6 @@ a savings habit that millions of Nigerians already have.
 - If you're over time, shorten 1:10–1:30 to one sentence ("Miss a round and your collateral covers it.").
 - Don't wait on camera for block confirmations. Cut to the confirmed state.
 - Say "MUSD" clearly at least three times, because Mezo integration is 30% of the score.
-- Be honest on screen: the yield panel only shows on a deployment with an adapter wired in. Until Wave 2 redeploy,
-  the banner reads that the adapter is not wired yet and that sMUSD is live on testnet. Use the README table for that shot if needed.
+- Be honest on screen: the yield panel shows on this Wave 2 v4 deploy (adapter wired). Yield is discrete
+  `ProtocolYieldReceived` index bumps, not continuous interest. The smoke circle earned natural yield only
+  (no donation). Circles listed in the app are read live from the contract.
