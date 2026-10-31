@@ -131,3 +131,94 @@ NEXT_PUBLIC_CHAIN=mezoTestnet
 NEXT_PUBLIC_AJO_ADDRESS=0x463203F3Cd12653bEa11FfCd22512B11e2a91835
 NEXT_PUBLIC_DEPLOY_BLOCK=16482570
 ```
+
+
+## Circle 2: Wave2 Yield Proof (2026-10-31)
+
+Circle id: 2, name "Wave2 Yield Proof"
+Params: token MUSD, contribution 10 MUSD, maxMembers 2, roundLength 10800 s (3 h), randomOrder false, requireCollateral true.
+Creator/member 0: deployer `0x7E084Cb20EBe4a3ca1353EF24c96D048AAB50146`
+Member 1: mezo-demo-1 `0x010F69291D5D4B1f4759A2268d6d6594D207B5B8`
+Payout order (join order): deployer, then demo-1.
+Start block: 16482778 (startedAt 1793440704, Africa/Lagos ~11:05 WAT). Close block: 16482979 (~11:12 WAT). Final status: Completed (2).
+No settleRound. Old v1/v2 demos and circle 1 were not touched.
+
+| # | Step | Wallet | Tx | Block |
+|---|---|---|---|---|
+| 1 | createCircle | deployer | [0xf99f3f1a…d903](https://explorer.test.mezo.org/tx/0xf99f3f1a353234d52556de131db3f37a5d11db931aa956c9a0d03660e9add903) | 16482770 |
+| 2 | approve (collateral+contribs) | deployer | [0xfe30f07b…843a](https://explorer.test.mezo.org/tx/0xfe30f07b3ec65fbd5fa6b814f77a784615107cbfa75fadafbff68b2f50e3843a) | 16482771 |
+| 3 | join(2) | deployer | [0x0355253a…aecf](https://explorer.test.mezo.org/tx/0x0355253a433f22d24b24976b08db06b80d77e0408b075aab803c54f89ccbaecf) | 16482772 |
+| 4 | approve | demo-1 | [0x90616bbe…1f18](https://explorer.test.mezo.org/tx/0x90616bbe04ebf54b2f6b36f6ff5af0600cefa257855832949165517130d61f18) | 16482776 |
+| 5 | join(2) | demo-1 | [0xed5bfa7f…115f](https://explorer.test.mezo.org/tx/0xed5bfa7f762d3db17664c3e1314463d7230f52d4d4b263978ec8daae0348115f) | 16482777 |
+| 6 | start(2) (routes 20 MUSD into sMUSD) | deployer | [0x646e8b2e…d474](https://explorer.test.mezo.org/tx/0x646e8b2eb72ea06b20597b9ed18964f43d89c7f2c6ba2cf3ff8a957bae53d474) | 16482778 |
+| 7 | contribute(2) r0 | deployer | [0x44abba0e…fce7](https://explorer.test.mezo.org/tx/0x44abba0ebfdd9127f09e9e8582f0902744c94e825c4629d6a9761794a1e8fce7) | 16482782 |
+| 8 | contribute(2) r0 (pays 20 MUSD to deployer) | demo-1 | [0x6ab73ce8…e27c](https://explorer.test.mezo.org/tx/0x6ab73ce85a4e1cc75fe7bd25f3659565bd13c486cd59c676243f1e40d0cbe27c) | 16482787 |
+| 9 | contribute(2) r1 | deployer | [0x065621d4…cfdb](https://explorer.test.mezo.org/tx/0x065621d4fd54b7af0a2099f56690cbb75afce88162bab92c180af1178750cfdb) | 16482788 |
+| 10 | approve 10 MUSD | demo-1 | [0xadc869f7…463ab](https://explorer.test.mezo.org/tx/0xadc869f73dcc91788136bff3ecb6ad18498eb37a0b555b2bb9090d875d3463ab) | 16482977 |
+| 11 | contribute(2) r1 (pays demo-1, closes, unroutes, harvests) | demo-1 | [0x4dfa0776…9931](https://explorer.test.mezo.org/tx/0x4dfa0776938d3dfa0b8aaa412ea26e4a0daf5ac70555691c5d574e714ce59931) | 16482979 |
+| 12 | claimPayout(2) | deployer | [0x2d099d9d…4c19](https://explorer.test.mezo.org/tx/0x2d099d9d6a0f164907c05af3b10ed130225e94511a2439db7e8bbba966af4c19) | 16482988 |
+| 13 | claimPayout(2) | demo-1 | [0xe175f4ed…7e11](https://explorer.test.mezo.org/tx/0xe175f4edbc6f3f17d19385f071f6c66a06bc1ab9ab236542774fe66a5e227e11) | 16482990 |
+
+### ProtocolYieldReceived cadence (pre-close)
+
+Prior pushes (for cadence): block 16481054 (~1.020 MUSD), block 16481919 (~1.019 MUSD). Gap 16481919-16481054 = 865 blocks.
+First push after start (16482778):
+
+- tx [0x66a179e4…4204](https://explorer.test.mezo.org/tx/0x66a179e4e870086bea02dbbcce555921d7d8a4800611ba4390f5949c55a44204) @ block **16482783**, amount 1019839684883823156 wei (~1.020 MUSD). Gap from prior = 864 blocks.
+
+Optional permissionless bump (deployer donated 2 MUSD testnet MUSD into the vault to enlarge the index delta while diagnosing claimableYield=0):
+
+- approve: [0x54a2b721…9691](https://explorer.test.mezo.org/tx/0x54a2b7218792b63f7ae20b45e73d0e8224d18015b9c11862ff6d901af18b9691) @ 16482934
+- receiveProtocolYield(2e18): [0x8150d9a2…db0c](https://explorer.test.mezo.org/tx/0x8150d9a2023c13ef4c606999c1d77497fb2954234406ae1167a928860bb6db0c) @ **16482935**, amount 2e18
+
+### Why vault.claimableYield(adapter) stayed 0 after the index bump
+
+Verified vault source (`MUSDSavingsRate`): `claimableYield` is a **storage mapping**, not a live view of `balance * (yieldIndex - supplyYieldIndex) / 1e18`. Accrual is written only inside `_updateYieldFor`, which runs on deposit/withdraw/transfer/claimYield. A raw index bump does not change the mapping until the adapter is checkpointed.
+
+After the natural push, `supplyYieldIndex(adapter)` was still the pre-bump index and `claimableYield(adapter)` read 0 even though the formula share was ~2.278e13 wei. `previewRedeem` / ERC4626 convert helpers are not on this vault (shares track 1:1 principal; yield is a separate ledger).
+
+Checkpoint used to materialize claimableYield (1 wei sMUSD transfer into the adapter, which triggers `_beforeTokenTransfer` -> `_updateYieldFor(adapter)`):
+
+- deployer approve+deposit 1 MUSD for sMUSD: approve [0xc5d1a5b4…a1af](https://explorer.test.mezo.org/tx/0xc5d1a5b4bd7f4c4b2e8b8801f35f89e3ada5fb9daceff9568848cb4ebd70a1af) @ 16482962, deposit [0xabf283a6…f4d6](https://explorer.test.mezo.org/tx/0xabf283a60d19d3bc9286a492f692f8ffee1ffc566e54bcc5378f230a68fdf4d6) @ 16482964
+- transfer 1 wei sMUSD to adapter: [0xd01b8c4e…4317](https://explorer.test.mezo.org/tx/0xd01b8c4e9f5d4c0db69faf7764c171e21d1d8c27030a2613aaecebb5f2b24317) @ 16482966
+
+Note: adapter `harvest` gates `vault.claimYield()` on `claimableYield > 0` first, so it cannot self-checkpoint index-only yield; close still works because `withdraw` always calls `_claimYield` (which updates then pays) before returning principal.
+
+### Readings immediately before final contribute (block ~16482975, Africa/Lagos 11:12 WAT)
+
+- vault.yieldIndex = 163061009324957253790
+- vault.supplyYieldIndex(adapter) = 163061009324957253790 (after checkpoint)
+- vault.claimableYield(adapter) = **67454618812000** (~6.745e-5 MUSD)
+- adapter.pendingYield = 67454618812000
+- adapter.principal = 20e18
+- vault.balanceOf(adapter) = 20e18 + 1 (extra 1 wei from checkpoint transfer)
+- ajo.getYield(2) = (routed 20e18, earned 67454618812000, distributed 0)
+- Of that claimable: ~22780314561120 attributable to the natural ~1.02 MUSD push; ~44674304250880 to the 2 MUSD donated push
+
+### Yield captured on close (final contribute tx 0x4dfa0776…9931)
+
+Events in the close tx (selected):
+
+- vault `YieldClaimed(adapter, 67454618812000)` (auto-claim on withdraw)
+- AjoCircle yield credit to each member: 33727309406000 (pro-rata half)
+- `CircleCompleted(2)`
+
+After close, before claims:
+
+- ajo MUSD = 20000067454618812000 (20e18 collateral + full yield)
+- claimable(2, deployer) = claimable(2, demo-1) = 10000033727309406000 each
+- adapter.principal = 0; vault.balanceOf(adapter) = 1 (stranded 1 wei sMUSD from checkpoint); claimableYield(adapter) = 0; pendingYield = 0
+
+Member MUSD balances:
+
+| Who | Before close | After final contrib (pot) | After claimPayout | Net vs before close |
+|---|---|---|---|---|
+| deployer | 182e18 | 182e18 (already got r0 pot earlier) | 192000033727309406000 | +10e18 collateral + 33727309406000 yield |
+| demo-1 | 440e18 | 450e18 (+10e18 r1 pot) | 460000033727309406000 | +10e18 pot +10e18 collateral + 33727309406000 yield |
+
+Observed yield reaching the closing circle: **67454618812000 wei total** (~6.745e-5 MUSD), split evenly. `yieldEarned(2, member)` = 33727309406000 each. getYield(2) after close = (0, 67454618812000, 67454618812000).
+
+### Adapter note for Builder
+
+`MUSDSavingsRateAdapter.harvest` / `pendingYield` only see the vault's stored `claimableYield` mapping. Until something checkpoints the adapter (transfer/withdraw/claimYield), both read 0 even after `ProtocolYieldReceived`. On close, `withdraw` checkpoints and pays, so members still receive yield. A safer harvest would call `claimYield()` unconditionally (or probe via a view that recomputes the index formula). Leaving 1 wei sMUSD on the adapter is harmless dust from the checkpoint transfer.
+
