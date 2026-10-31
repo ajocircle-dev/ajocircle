@@ -5,9 +5,13 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IYieldAdapter} from "./IYieldAdapter.sol";
 
-/// @notice Subset of Mezo's MUSD Savings Rate vault (sMUSD). Signatures taken from the verified
-///         implementation `MUSDSavingsRate` (0xb33c3f97bf3b7df59417d114c694353e42929e87) behind the MAINNET
-///         proxy 0xb4D498029af77680cD1eF828b967f010d06C51CC. There is no testnet (31611) deployment.
+/// @notice Subset of Mezo's MUSD Savings Rate vault (sMUSD). Signatures match the verified
+///         `MUSDSavingsRate` implementation used behind:
+///         - Mezo testnet (31611) proxy `0x6f461c68B2c5492C0F5CCEc5a264d692aA7A8e16`
+///           (impl `0x92d12f0a60906b39d81acd9bf8977b6c824cd98c`)
+///         - Mezo mainnet (31612) proxy `0xb4D498029af77680cD1eF828b967f010d06C51CC`
+///           (impl `0xb33c3f97bf3b7df59417d114c694353e42929e87`)
+///         `withdraw` auto-claims yield to the caller before returning principal.
 interface IMUSDSavingsRate {
     function deposit(uint256 amount) external;
     function withdraw(uint256 amount) external;
@@ -18,9 +22,9 @@ interface IMUSDSavingsRate {
 
 /// @title MUSDSavingsRateAdapter
 /// @notice Parks AjoCircle collateral in the MUSD Savings Rate vault (sMUSD): no withdrawal fee, 0h time-lock.
-/// @dev MAINNET ONLY (chain 31612) until Mezo ships the vault on testnet. Every fund movement is checked by
-///      balance deltas, so if the vault ever returns less than the principal the call reverts instead of
-///      silently under-collateralising a circle. Fork-test against mainnet before any real deployment.
+/// @dev Works on Mezo testnet and mainnet. Every fund movement is checked by balance deltas, so if the vault
+///      ever returns less than the principal the call reverts instead of silently under-collateralising a circle.
+///      Fork-test against the target network's vault before deploying.
 contract MUSDSavingsRateAdapter is IYieldAdapter {
     using SafeERC20 for IERC20;
 
@@ -59,6 +63,8 @@ contract MUSDSavingsRateAdapter is IYieldAdapter {
         vault.deposit(amount);
     }
 
+    /// @dev The vault's withdraw auto-claims yield into this adapter before transferring `amount` of principal.
+    ///      Only principal is forwarded to `to`; leftover yield stays here for the next `harvest`.
     function withdraw(uint256 amount, address to) external onlyOwner {
         principal -= amount;
         uint256 before = musd.balanceOf(address(this));
@@ -69,7 +75,9 @@ contract MUSDSavingsRateAdapter is IYieldAdapter {
 
     function harvest(address to) external onlyOwner returns (uint256 y) {
         if (vault.claimableYield(address(this)) > 0) vault.claimYield();
-        y = musd.balanceOf(address(this)); // adapter holds no idle principal, so any balance is yield
+        // Any MUSD here is yield: principal lives in the vault (tracked by `principal`), never idle on this contract,
+        // except leftover auto-claimed by a prior vault.withdraw that has not been harvested yet.
+        y = musd.balanceOf(address(this));
         if (y > 0) musd.safeTransfer(to, y);
     }
 

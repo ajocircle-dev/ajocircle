@@ -18,6 +18,7 @@ line_length = 110
 
 [rpc_endpoints]
 mezo_testnet = "https://rpc.test.mezo.org"
+mezo_mainnet = "https://mainnet.mezo.public.validationcloud.io"
 arc_testnet = "https://rpc.testnet.arc.io"
 arc = "https://rpc.mainnet.arc.io"
 anvil = "http://127.0.0.1:8545"

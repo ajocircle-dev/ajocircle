@@ -9,10 +9,13 @@ import {MockYieldAdapter} from "../src/yield/MockYieldAdapter.sol";
 import {MUSDSavingsRateAdapter} from "../src/yield/MUSDSavingsRateAdapter.sol";
 
 /// @dev Mirrors the MUSDSavingsRate surface we use: 1:1 principal, yield claimed separately in MUSD.
+///      `withdraw` auto-claims claimable yield and any `yieldOnNextWithdraw` (mirrors Mezo vault
+///      calling receiveYieldFromStrategy + _claimYield inside withdraw).
 contract MockSavingsRate {
     MockERC20 public immutable musdToken;
     mapping(address => uint256) public balanceOf;
     mapping(address => uint256) public claimableYield;
+    mapping(address => uint256) public yieldOnNextWithdraw;
 
     constructor(MockERC20 musd_) {
         musdToken = musd_;
@@ -24,6 +27,10 @@ contract MockSavingsRate {
     }
 
     function withdraw(uint256 amount) external {
+        uint256 autoY = claimableYield[msg.sender] + yieldOnNextWithdraw[msg.sender];
+        claimableYield[msg.sender] = 0;
+        yieldOnNextWithdraw[msg.sender] = 0;
+        if (autoY > 0) musdToken.transfer(msg.sender, autoY);
         balanceOf[msg.sender] -= amount;
         musdToken.transfer(msg.sender, amount);
     }
@@ -37,6 +44,12 @@ contract MockSavingsRate {
     function addYield(address account, uint256 amount) external {
         musdToken.mint(address(this), amount);
         claimableYield[account] += amount;
+    }
+
+    /// @notice Yield that only appears during the next withdraw (strategy claim path).
+    function addYieldOnNextWithdraw(address account, uint256 amount) external {
+        musdToken.mint(address(this), amount);
+        yieldOnNextWithdraw[account] += amount;
     }
 }
 
@@ -357,5 +370,47 @@ contract AjoCircleYieldTest is Test {
         assertEq(musd.balanceOf(address(ajo2)), 0);
         vm.expectRevert(MUSDSavingsRateAdapter.NotOwner.selector);
         sAdapter.deposit(1);
+    }
+
+    /// @notice Yield that the vault auto-claims only inside withdraw must still reach the closing circle.
+    function test_ClosingCircleReceivesYieldAutoClaimedOnFinalWithdraw() public {
+        MockSavingsRate vault = new MockSavingsRate(musd);
+        MUSDSavingsRateAdapter sAdapter = new MUSDSavingsRateAdapter(address(vault));
+        AjoCircle ajo2 = new AjoCircle(address(sAdapter));
+        for (uint256 i; i < 3; i++) {
+            vm.prank(people[i]);
+            musd.approve(address(ajo2), type(uint256).max);
+        }
+        vm.prank(creator);
+        uint256 id = ajo2.createCircle(address(musd), AMOUNT, 3, ROUND, false, true, "auto-claim close");
+        for (uint256 i; i < 3; i++) {
+            vm.prank(people[i]);
+            ajo2.join(id);
+        }
+        vm.prank(creator);
+        ajo2.start(id);
+
+        // Yield appears only when the vault withdraws (not via claimableYield / claimYield).
+        vault.addYieldOnNextWithdraw(address(sAdapter), 6e18);
+
+        for (uint256 r; r < 3; r++) {
+            for (uint256 i; i < 3; i++) {
+                vm.prank(people[i]);
+                ajo2.contribute(id);
+            }
+        }
+        assertEq(uint8(ajo2.getCircle(id).status), uint8(AjoCircle.Status.Completed));
+        assertEq(musd.balanceOf(address(sAdapter)), 0, "no stranded yield on adapter");
+        assertEq(vault.balanceOf(address(sAdapter)), 0);
+        (,, uint256 distributed) = ajo2.getYield(id);
+        assertEq(distributed, 6e18, "closing circle received auto-claimed yield");
+        for (uint256 i; i < 3; i++) {
+            assertEq(ajo2.yieldEarned(id, people[i]), 2e18);
+            uint256 before = musd.balanceOf(people[i]);
+            vm.prank(people[i]);
+            ajo2.claimPayout(id);
+            assertEq(musd.balanceOf(people[i]) - before, AMOUNT + 2e18, "collateral + yield share");
+        }
+        assertEq(musd.balanceOf(address(ajo2)), 0);
     }
 }

@@ -21,11 +21,11 @@ import {MUSDSavingsRateAdapter} from "../src/yield/MUSDSavingsRateAdapter.sol";
 ///   DEMO_ROUND_LENGTH   seconds (default 600)
 ///   DEMO_COLLATERAL     "true" to require collateral (default true)
 ///
-/// Yield (optional; default = none, i.e. plain MUSD / USDC rails, required for Arc and for Mezo TESTNET,
-/// where no principal-safe MUSD yield source exists, see README "MUSD yield"):
+/// Yield (optional; default = none, i.e. plain MUSD / USDC rails; required for Arc):
 ///   YIELD_ADAPTER       address of an already-deployed, UNBOUND IYieldAdapter (AjoCircle binds it in its constructor)
-///   SMUSD_VAULT         Mezo MAINNET MUSD Savings Rate vault (0xb4D498029af77680cD1eF828b967f010d06C51CC):
-///                       deploys an MUSDSavingsRateAdapter for it and wires it in. Mainnet only.
+///   SMUSD_VAULT         Mezo MUSD Savings Rate vault. Deploys an MUSDSavingsRateAdapter and wires it in.
+///                       Testnet: 0x6f461c68B2c5492C0F5CCEc5a264d692aA7A8e16
+///                       Mainnet: 0xb4D498029af77680cD1eF828b967f010d06C51CC
 ///   DEPLOY_MOCK_ADAPTER "true" to deploy a MockYieldAdapter for TOKEN_ADDRESS / the mock token (demo/local only;
 ///                       "yield" = tokens sent to the adapter)
 contract Deploy is Script {

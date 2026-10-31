@@ -504,7 +504,9 @@ contract AjoCircle is ReentrancyGuard {
 
     function _sync(uint256 circleId) internal {
         YieldInfo storage y = _yield[circleId];
-        y.accrued += (y.routed * accYieldPerUnit) / ACC - y.debt;
+        uint256 cum = (y.routed * accYieldPerUnit) / ACC;
+        y.accrued += cum - y.debt;
+        y.debt = cum; // so a later sync only adds newly harvested yield
     }
 
     function _setRouted(uint256 circleId, uint256 routed) internal {
@@ -524,13 +526,20 @@ contract AjoCircle is ReentrancyGuard {
     }
 
     function _unroute(uint256 circleId, uint256 amount) internal {
+        // Harvest any already-claimable yield first, then pull principal. Mezo's MUSDSavingsRate.withdraw
+        // calls receiveYieldFromStrategy + _claimYield before returning principal, so fresh yield can land
+        // on the adapter in the same call. Harvest again WHILE this circle's routed amount still counts
+        // toward totalRouted, then reduce routed. Otherwise that auto-claimed yield is stranded on the
+        // adapter (or parked as unallocatedYield once totalRouted hits 0), and a closing circle misses it.
+        _harvest();
+        _sync(circleId);
+        uint256 before = IERC20(yieldAsset).balanceOf(address(this));
+        yieldAdapter.withdraw(amount, address(this));
+        if (IERC20(yieldAsset).balanceOf(address(this)) - before < amount) revert AdapterShortfall();
         _harvest();
         _sync(circleId);
         totalRouted -= amount;
         _setRouted(circleId, _yield[circleId].routed - amount);
-        uint256 before = IERC20(yieldAsset).balanceOf(address(this));
-        yieldAdapter.withdraw(amount, address(this));
-        if (IERC20(yieldAsset).balanceOf(address(this)) - before < amount) revert AdapterShortfall();
         emit CollateralUnrouted(circleId, amount);
     }
 
