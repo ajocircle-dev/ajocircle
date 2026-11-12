@@ -40,7 +40,7 @@ const nextRecipient = (r: Row) => (r.c.status === 1 ? r.recipient ?? r.order[r.c
 const roundOf = (r: Row) => (r.c.status === 1 ? r.c.currentRound + 1 : r.c.status === 2 ? r.c.maxMembers : 0);
 
 export function Dashboard() {
-  const { data, isLoading, error, refetch, isFetching, dataUpdatedAt } = useDashboard();
+  const { data, isLoading, eventsLoading, eventsError, error, refetch, isFetching, dataUpdatedAt } = useDashboard();
   const { address: me } = useAccount();
   const now = useNow();
   const [tab, setTab] = useState<"all" | "mine">("all");
@@ -78,7 +78,7 @@ export function Dashboard() {
         </div>
       ) : (
         <>
-          <Summary rows={data?.rows} loading={isLoading} now={now} />
+          <Summary rows={data?.rows} loading={isLoading} eventsLoading={eventsLoading} eventsError={eventsError} now={now} />
           <div className="tabs" role="tablist" aria-label="Circle lists">
             <button role="tab" aria-selected={tab === "all"} className={tab === "all" ? "on" : ""} onClick={() => setTab("all")}>
               All circles {data && <span className="count">{data.rows.length}</span>}
@@ -90,7 +90,7 @@ export function Dashboard() {
           {tab === "all" ? (
             <AllCircles rows={data?.rows} loading={isLoading} now={now} />
           ) : (
-            <MyCircles rows={data?.rows} loading={isLoading} now={now} />
+            <MyCircles rows={data?.rows} loading={isLoading} eventsLoading={eventsLoading} now={now} />
           )}
         </>
       )}
@@ -100,7 +100,14 @@ export function Dashboard() {
 
 /* ---------------- summary ---------------- */
 
-function Summary({ rows, loading, now }: { rows?: Row[]; loading: boolean; now: number }) {
+/** Value slot for a figure that depends on the event scan: skeleton while it loads, a dash if it failed. */
+function EventVal({ loading, error, children }: { loading: boolean; error: boolean; children: React.ReactNode }) {
+  if (loading) return <span className="skeleton w40" aria-busy="true" title="Loading event totals" />;
+  if (error) return <strong className="sum-val" title="Could not read contract events from the RPC. Reload to retry.">n/a</strong>;
+  return <strong className="sum-val">{children}</strong>;
+}
+
+function Summary({ rows, loading, eventsLoading, eventsError, now }: { rows?: Row[]; loading: boolean; eventsLoading: boolean; eventsError: boolean; now: number }) {
   const s = useMemo(() => {
     if (!rows) return null;
     const musd = rows.filter((r) => sym(r) === tokenLabel);
@@ -135,9 +142,9 @@ function Summary({ rows, loading, now }: { rows?: Row[]; loading: boolean; now: 
       </div>
       <div className="sum-card orange">
         <span className="sum-label">Total {tokenLabel} saved</span>
-        <strong className="sum-val">{fmt(s.contributed + s.locked, 18)}</strong>
+        <EventVal loading={eventsLoading} error={eventsError}>{fmt(s.contributed + s.locked, 18)}</EventVal>
         <span className="muted small">
-          {fmt(s.contributed, 18)} contributed + {fmt(s.locked, 18)} collateral locked
+          {eventsLoading ? `loading contribution history, ${fmt(s.locked, 18)} collateral locked` : `${fmt(s.contributed, 18)} contributed + ${fmt(s.locked, 18)} collateral locked`}
         </span>
       </div>
       <div className="sum-card">
@@ -147,7 +154,7 @@ function Summary({ rows, loading, now }: { rows?: Row[]; loading: boolean; now: 
       </div>
       <div className="sum-card">
         <span className="sum-label">Payouts made</span>
-        <strong className="sum-val">{s.payouts}</strong>
+        <EventVal loading={eventsLoading} error={eventsError}>{s.payouts}</EventVal>
         <span className="muted small">pots sent or credited to recipients</span>
       </div>
       <div className="sum-card next-card">
@@ -324,7 +331,7 @@ function mineOf(rows: Row[], me: string) {
   return rows.filter((r) => r.c.creator.toLowerCase() === m || r.members.some((x) => x.toLowerCase() === m));
 }
 
-function MyCircles({ rows, loading, now }: { rows?: Row[]; loading: boolean; now: number }) {
+function MyCircles({ rows, loading, eventsLoading, now }: { rows?: Row[]; loading: boolean; eventsLoading: boolean; now: number }) {
   const w = useWallet();
   const { address: me } = useAccount();
 
@@ -395,7 +402,9 @@ function MyCircles({ rows, loading, now }: { rows?: Row[]; loading: boolean; now
               const slashed = r.slashedBy[k];
               const returned = r.returnedTo[k];
               let col: { t: string; cls: string };
-              if (!isMember) col = { t: "n/a", cls: "muted" };
+              const needsHistory = isMember && r.c.requireCollateral && !info?.exited && !(info && info.collateral > 0n);
+              if (eventsLoading && needsHistory) col = { t: "Loading…", cls: "muted" };
+              else if (!isMember) col = { t: "n/a", cls: "muted" };
               else if (!r.c.requireCollateral) col = { t: "None required", cls: "muted" };
               else if (slashed && info && info.collateral > 0n) col = { t: `Partly slashed (−${fmt(slashed, 18)}) · ${fmt(info.collateral, 18)} locked`, cls: "error" };
               else if (slashed) col = { t: `Slashed (−${fmt(slashed, 18)} ${s})`, cls: "error" };

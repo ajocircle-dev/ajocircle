@@ -1,12 +1,12 @@
 "use client";
 import { useQuery } from "@tanstack/react-query";
 import { usePublicClient } from "wagmi";
-import { decodeEventLog, type Address, type Log } from "viem";
+import { decodeEventLog, type Address } from "viem";
 import { ajoAbi } from "@/lib/abi";
-import { ajoAddress, deployBlock, explorerUrl } from "@/lib/config";
+import { ajoAddress, explorerUrl } from "@/lib/config";
+import { fromStored, getCachedLogs, type LogClient } from "@/lib/logCache";
+import { scanOptions } from "@/lib/logScan";
 import { fmt, short } from "@/lib/format";
-
-const CHUNK = 9_000n; // stay under common eth_getLogs range limits
 
 type Row = { name: string; args: Record<string, unknown>; tx: string; block: bigint };
 
@@ -15,21 +15,18 @@ export function History({ circleId, decimals, symbol }: { circleId: bigint; deci
   const { data, isLoading, error } = useQuery({
     queryKey: ["history", circleId.toString()],
     enabled: !!client && !!ajoAddress,
-    refetchInterval: 15_000,
+    refetchInterval: 30_000,
     queryFn: async () => {
-      const latest = await client!.getBlockNumber();
-      const logs: Log[] = [];
-      for (let from = deployBlock; from <= latest; from += CHUNK + 1n) {
-        const to = from + CHUNK > latest ? latest : from + CHUNK;
-        logs.push(...(await client!.getLogs({ address: ajoAddress as Address, fromBlock: from, toBlock: to })));
-      }
+      // shared with the dashboard: only blocks not scanned yet are fetched
+      const set = await getCachedLogs(client as unknown as LogClient, scanOptions());
       const rows: Row[] = [];
-      for (const log of logs) {
+      for (const stored of set.logs) {
         try {
+          const log = fromStored(stored, ajoAddress as Address);
           const ev = decodeEventLog({ abi: ajoAbi, data: log.data, topics: log.topics });
           const args = ev.args as unknown as Record<string, unknown>;
           if (args.circleId !== circleId) continue;
-          rows.push({ name: ev.eventName, args, tx: log.transactionHash!, block: log.blockNumber! });
+          rows.push({ name: ev.eventName, args, tx: log.transactionHash, block: log.blockNumber });
         } catch {}
       }
       return rows.reverse();

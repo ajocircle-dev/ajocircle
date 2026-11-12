@@ -232,10 +232,27 @@ cd web
 NEXT_PUBLIC_CHAIN=mezoTestnet \
 NEXT_PUBLIC_AJO_ADDRESS=0xc2B6e4Bec56F1fd129D4bCd1CB8e4271303B0dda \
 NEXT_PUBLIC_DEPLOY_BLOCK=16487793 \
+npm run snapshot         # read-only: writes web/public/logs-snapshot.json (event history up to now, gitignored)
+NEXT_PUBLIC_CHAIN=mezoTestnet \
+NEXT_PUBLIC_AJO_ADDRESS=0xc2B6e4Bec56F1fd129D4bCd1CB8e4271303B0dda \
+NEXT_PUBLIC_DEPLOY_BLOCK=16487793 \
 npm run build            # writes the static site to web/out
 npx -p node@22 -p wrangler wrangler pages deploy out --project-name ajocircle --branch main
 ```
 For a GitHub Pages project site, also set `NEXT_PUBLIC_BASE_PATH=/ajocircle`.
+
+#### Dashboard loading
+The dashboard renders circles, members and status from one multicall first. Event-derived figures (total saved, payouts,
+slashes) load as a separate query: the scanned logs are cached in memory and localStorage (key `ajo:logs:v1:<chainId>:<contract>`),
+only new blocks are fetched on refetch (with a 50 block overlap as a reorg guard), and the data refreshes every 60 s.
+`npm run snapshot` bakes the history into the static site so a first-time visitor only scans the blocks since the deploy.
+The Mezo testnet RPC limits `eth_getLogs` to `to - from <= 10000`, so chunks are 10001 blocks, 8 requests in parallel;
+a chunk is split automatically if an RPC rejects its size. Unit tests: `cd web && npm test`.
+
+#### Approval rule
+Every flow that needs a token allowance calls `useTx().approveIfNeeded`: it reads the allowance fresh, approves the exact
+amount (never unlimited), waits for 1 confirmation and a `success` receipt, re-reads the allowance, and only then lets the
+dependent transaction (join, contribute) be sent.
 
 ## Deployed addresses
 

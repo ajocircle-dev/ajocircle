@@ -7,7 +7,9 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "abi": "node scripts/export-abi.mjs"
+    "abi": "node scripts/export-abi.mjs",
+    "snapshot": "node scripts/snapshot-logs.mjs",
+    "test": "node --test --experimental-strip-types test/logCache.test.mjs"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.104.5",

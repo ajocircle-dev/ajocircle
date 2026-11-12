@@ -1,9 +1,12 @@
 "use client";
-import { useQuery } from "@tanstack/react-query";
+import { useEffect, useMemo } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { usePublicClient } from "wagmi";
-import { decodeEventLog, type Address, type Log, type PublicClient } from "viem";
+import { decodeEventLog, type Address, type PublicClient } from "viem";
 import { ajoAbi } from "./abi";
-import { ajoAddress, deployBlock } from "./config";
+import { ajoAddress } from "./config";
+import { scanOptions } from "./logScan";
+import { fromStored, getCachedLogs, readStored, type LogClient, type StoredLog } from "./logCache";
 
 export type CircleT = {
   creator: Address;
@@ -46,9 +49,19 @@ export type Row = {
   collateralLocked: bigint;
 };
 export type Dashboard = { rows: Row[]; latestBlock: bigint; multicall: boolean };
+/** Figures derived from contract events, per circle id. They load after the circle data. */
+export type EventTotals = {
+  defaulted: boolean;
+  slashedBy: Record<string, bigint>;
+  returnedTo: Record<string, bigint>;
+  contributed: bigint;
+  payouts: number;
+};
+export type EventData = { byId: Map<number, EventTotals>; scannedTo: bigint };
+
+const REFETCH_MS = 60_000;
 
 const ajo = { address: ajoAddress as Address, abi: ajoAbi } as const;
-const CHUNK = 9_000n;
 
 type Call = { functionName: string; args: readonly unknown[] };
 
@@ -70,9 +83,14 @@ async function batch(client: PublicClient, calls: Call[], state: { multicall: bo
   return settled.map((r) => (r.status === "fulfilled" ? r.value : undefined));
 }
 
-async function loadAll(client: PublicClient): Promise<Dashboard> {
+/** Step 1: circles, members, status. Multicall only: no event scan, so it renders fast. */
+async function loadCore(client: PublicClient): Promise<Dashboard> {
   const state = { multicall: !!client.chain?.contracts?.multicall3 };
-  const count = Number(await client.readContract({ ...ajo, functionName: "circleCount" }));
+  const [countRaw, latestBlock] = await Promise.all([
+    client.readContract({ ...ajo, functionName: "circleCount" }),
+    client.getBlockNumber(),
+  ]);
+  const count = Number(countRaw);
   const ids = Array.from({ length: count }, (_, i) => i + 1);
 
   // 1) circle, members, payout order
@@ -130,50 +148,6 @@ async function loadAll(client: PublicClient): Promise<Dashboard> {
     else if (x.kind === "p") row.paidNow[x.who!.toLowerCase()] = !!res[i];
     else row.recipient = res[i] as Address | undefined;
   });
-
-  // 3) events since deploy: contributions, payouts, slashes, collateral returns
-  const latestBlock = await client.getBlockNumber();
-  const logs: Log[] = [];
-  const ranges: [bigint, bigint][] = [];
-  for (let from = deployBlock; from <= latestBlock; from += CHUNK + 1n) ranges.push([from, from + CHUNK > latestBlock ? latestBlock : from + CHUNK]);
-  for (let i = 0; i < ranges.length; i += 4) {
-    const part = await Promise.all(
-      ranges.slice(i, i + 4).map(([fromBlock, toBlock]) => client.getLogs({ address: ajoAddress as Address, fromBlock, toBlock })),
-    );
-    part.forEach((p) => logs.push(...p));
-  }
-  const byId = new Map(rows.map((r) => [r.id, r]));
-  for (const log of logs) {
-    let ev;
-    try {
-      ev = decodeEventLog({ abi: ajoAbi, data: log.data, topics: log.topics });
-    } catch {
-      continue;
-    }
-    const a = ev.args as unknown as Record<string, unknown>;
-    const row = byId.get(Number(a.circleId as bigint));
-    if (!row) continue;
-    switch (ev.eventName) {
-      case "ContributionMade":
-        row.contributed += a.amount as bigint;
-        break;
-      case "PayoutSent":
-      case "PayoutCredited":
-        row.payouts += 1;
-        break;
-      case "CollateralSlashed": {
-        const k = (a.member as string).toLowerCase();
-        row.slashedBy[k] = (row.slashedBy[k] ?? 0n) + (a.amount as bigint);
-        row.defaulted = true;
-        break;
-      }
-      case "CollateralReturned": {
-        const k = (a.member as string).toLowerCase();
-        row.returnedTo[k] = (row.returnedTo[k] ?? 0n) + (a.amount as bigint);
-        break;
-      }
-    }
-  }
   for (const row of rows) {
     for (const m of Object.values(row.info)) {
       if (!m) continue;
@@ -184,13 +158,117 @@ async function loadAll(client: PublicClient): Promise<Dashboard> {
   return { rows, latestBlock, multicall: state.multicall };
 }
 
-export function useDashboard() {
+/** Folds decoded contract events into per-circle totals. Pure, so it also works on cached logs. */
+export function foldEvents(logs: StoredLog[], scannedTo: bigint): EventData {
+  const byId = new Map<number, EventTotals>();
+  const get = (id: number) => {
+    let t = byId.get(id);
+    if (!t) byId.set(id, (t = { defaulted: false, slashedBy: {}, returnedTo: {}, contributed: 0n, payouts: 0 }));
+    return t;
+  };
+  for (const l of logs) {
+    let ev;
+    try {
+      const log = fromStored(l, ajoAddress as Address);
+      ev = decodeEventLog({ abi: ajoAbi, data: log.data, topics: log.topics });
+    } catch {
+      continue;
+    }
+    const a = ev.args as unknown as Record<string, unknown>;
+    if (typeof a.circleId !== "bigint") continue;
+    const t = get(Number(a.circleId));
+    switch (ev.eventName) {
+      case "ContributionMade":
+        t.contributed += a.amount as bigint;
+        break;
+      case "PayoutSent":
+      case "PayoutCredited":
+        t.payouts += 1;
+        break;
+      case "CollateralSlashed": {
+        const k = (a.member as string).toLowerCase();
+        t.slashedBy[k] = (t.slashedBy[k] ?? 0n) + (a.amount as bigint);
+        t.defaulted = true;
+        break;
+      }
+      case "CollateralReturned": {
+        const k = (a.member as string).toLowerCase();
+        t.returnedTo[k] = (t.returnedTo[k] ?? 0n) + (a.amount as bigint);
+        break;
+      }
+    }
+  }
+  return { byId, scannedTo };
+}
+
+/** Step 2: event totals from the cached incremental log scan (only new blocks are fetched). */
+async function loadEvents(client: PublicClient): Promise<EventData> {
+  const set = await getCachedLogs(client as unknown as LogClient, scanOptions());
+  return foldEvents(set.logs, set.toBlock);
+}
+
+export type DashboardState = {
+  data: Dashboard | undefined;
+  /** true until the circle data (not the event totals) has loaded */
+  isLoading: boolean;
+  /** true while event-derived figures (saved total, payouts, slashes) have not loaded yet */
+  eventsLoading: boolean;
+  eventsError: boolean;
+  error: Error | null;
+  isFetching: boolean;
+  dataUpdatedAt: number;
+  refetch: () => void;
+};
+
+export function useDashboard(): DashboardState {
   const client = usePublicClient();
-  return useQuery({
-    queryKey: ["dashboard", ajoAddress],
-    enabled: !!client && !!ajoAddress,
-    refetchInterval: 20_000,
+  const qc = useQueryClient();
+  const enabled = !!client && !!ajoAddress;
+
+  const core = useQuery({
+    queryKey: ["dashboard", "core", ajoAddress],
+    enabled,
+    refetchInterval: REFETCH_MS,
     retry: 1,
-    queryFn: () => loadAll(client as PublicClient),
+    queryFn: () => loadCore(client as PublicClient),
   });
+  const events = useQuery({
+    queryKey: ["dashboard", "events", ajoAddress],
+    enabled,
+    refetchInterval: REFETCH_MS,
+    retry: 1,
+    queryFn: () => loadEvents(client as PublicClient),
+  });
+
+  // Warm visit: show totals from the localStorage cache straight away, then let the query refresh them.
+  useEffect(() => {
+    if (!enabled || qc.getQueryData(["dashboard", "events", ajoAddress])) return;
+    const hit = readStored(scanOptions());
+    if (hit) qc.setQueryData(["dashboard", "events", ajoAddress], foldEvents(hit.logs, hit.toBlock), { updatedAt: hit.savedAt || undefined });
+  }, [enabled, qc]);
+
+  const data = useMemo<Dashboard | undefined>(() => {
+    if (!core.data) return undefined;
+    const ev = events.data;
+    if (!ev) return core.data;
+    const rows = core.data.rows.map((r) => {
+      const t = ev.byId.get(r.id);
+      return t ? { ...r, ...t, defaulted: r.defaulted || t.defaulted } : r;
+    });
+    return { ...core.data, rows };
+  }, [core.data, events.data]);
+
+  return {
+    data,
+    isLoading: core.isLoading,
+    eventsLoading: !events.data && !events.isError,
+    eventsError: !events.data && events.isError,
+    error: core.error as Error | null,
+    isFetching: core.isFetching || events.isFetching,
+    dataUpdatedAt: core.dataUpdatedAt,
+    refetch: () => {
+      core.refetch();
+      events.refetch();
+    },
+  };
 }
